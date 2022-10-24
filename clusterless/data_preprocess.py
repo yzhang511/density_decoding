@@ -54,6 +54,7 @@ def load_kilosort_sorted_data(rootpath, sub_id, keep_active_trials = True, samp_
 
 
 # to do: load_kilosort_good_ibl_units()
+
 # to do: load_kilosort_unsorted_data()
     
     
@@ -66,17 +67,39 @@ def load_behaviors_data(rootpath, sub_id):
     return behave_dict, behave_idx_dict
     
 
-def load_kilosort_templates():
+def load_kilosort_template_feature_mads(rootpath, sub_id):
     '''
     
     '''    
-    
-    
+    temp_amps = np.load(f'{rootpath}/{sub_id}/misc/ks_template_amps.npy')
+    x_mad_scaled = np.load(f'{rootpath}/{sub_id}/misc/x_mad_scaled.npy')
+    z_mad_scaled = np.load(f'{rootpath}/{sub_id}/misc/z_mad_scaled.npy')
+    return temp_amps, x_mad_scaled, z_mad_scaled
     
 def preprocess_static_behaviors(behave_dict):
     '''
-    
+    extract choices, stimuli, rewards and priors.
     '''
+    choices = behave_dict[:,:,:,22:24].sum(2)[0,:,:]
+    print('choices left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), (choices.sum(0)[1]/choices.shape[0])))
     
+    stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
+    print('stimuli left: %.3f, right: %.3f'%((np.sum(stimuli.argmax(1)==1)/stimuli.shape[0]), \
+                                   (np.sum(stimuli.argmax(1)==0)/stimuli.shape[0])))
+    
+    rewards = behave_dict[:,:,:,24:26].sum(2)[0,:,:]
+    print('reward wrong: %.3f, correct: %.3f'%((rewards.sum(0)[0]/rewards.shape[0]), (rewards.sum(0)[1]/rewards.shape[0])))
+    
+    priors = behave_dict[0,:,0,27:28]
+    
+    transformed_stimuli = []
+    for s in stimuli:
+        if s.argmax()==1:
+            transformed_stimuli.append(-1*s.sum())
+        else:
+            transformed_stimuli.append(s.sum())
+    transformed_stimuli = np.array(transformed_stimuli)
+
+    return choices, stimuli, transformed_stimuli, rewards, priors
     
 # to do: compute_time_binned_neural_activity() - for clusterless, unsorted, sorted. 

@@ -5,15 +5,54 @@ from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 
 
-def plot_drift_map():
-    return
+def plot_drift_map(spikes_indices, spikes_features, n_spikes_display=1000_000, samp_freq=30_000):
+    '''
+    to do: add kilosort drift map
+    to do: pass aesthetic config
+    '''
+    offset = spikes_indices[:,0] / samp_freq
+    spikes_times = (spikes_indices[:,0] - offset) / samp_freq
+
+    log_ptp = spikes_features[:,4].copy()
+    log_ptp = np.log(log_ptp+1)
+    ptp_rescaled = (log_ptp - log_ptp.min())/(log_ptp.max() - log_ptp.min())
+    ptp_rescaled[ptp_rescaled<0.2] = 0.2    #change bounds so that it looks more flat
+    ptp_rescaled[ptp_rescaled>0.6] = 0.6
+    ptp_rescaled = (ptp_rescaled - ptp_rescaled.min())/(ptp_rescaled.max() - ptp_rescaled.min())
+
+    vir = plt.cm.get_cmap('viridis')
+    color_arr = vir(ptp_rescaled)
+    color_arr[:, 3] = ptp_rescaled
+
+    plt.figure(figsize = (20, 10))
+    plt.scatter(spikes_times[:n_spikes_display], spikes_features[:,2][:n_spikes_display], s=5, c=color_arr[:n_spikes_display])
+    plt.xlabel('time (s)', fontsize = 20)
+    plt.ylabel('depth (um)', fontsize = 20)
+    plt.margins(x=0)
+    plt.margins(y=0)
+    plt.title('unsorted drift map', fontsize = 20)
+    plt.show()
     
     
-def plot_spikes_features():
-    return
+def plot_spikes_features(trials, trials_ids):
+    '''
+    to do: label how many minutes are used to collect the spikes
+    to do: pass aesthetic config
+    '''
+    spikes_display = np.vstack([trials[i] for i in trials_ids])
+    plt.figure(figsize = (4, 8))
+    plt.scatter(spikes_display[:,1], spikes_display[:,2], c=spikes_display[:,3], s=10, alpha=0.5),
+    plt.xlabel("x (um)")
+    plt.ylabel("z (um)")
+    plt.title(f'spikes collected over {len(trials_ids)} trials')
+    plt.colorbar(label="ptp (amp)");
     
     
 def plot_time_series_heatmap():
+    return
+
+
+def plot_static_behavior_traces():
     return
 
 
@@ -42,3 +81,6 @@ def confidence_ellipse(x, y, ax, n_std=2.0, facecolor='none', **kwargs):
 
     ellipse.set_transform(transf + ax.transData)
     return ax.add_patch(ellipse)
+
+def plot_gmm_cluster_viz():
+    return 
