@@ -54,6 +54,7 @@ def split_gaussians(data, initial_gmm, initial_labels, split_ids):
     '''
     
     '''
+    # before split
     init_bic = initial_gmm.bic(data)
     print(f'initial n_gaussians: {len(initial_gmm.means_)} bic: {round(init_bic, 2)}')
 
@@ -72,7 +73,47 @@ def split_gaussians(data, initial_gmm, initial_labels, split_ids):
     pre_split_bic = pre_split_gmm.bic(data)
     print(f'pre-split bic: {round(pre_split_bic, 2)}')
     
+    # split
+    post_split_weights = [pre_split_gmm.weights_]
+    post_split_means = [pre_split_gmm.means_]
+    post_split_covariances = [pre_split_gmm.covariances_]
+    post_split_bics = [pre_split_bic, pre_split_bic]
     
+    for i in split_ids:
+        n_gaussians = 1
+        while post_split_bics[-1] <= post_split_bics[-2]:
+            n_gaussians += 1
+            tmp_gmm = GaussianMixture(n_components=n_gaussians)
+            tmp_gmm.fit(data[labels == i])
+
+            weights = np.hstack([pre_split_weights, tmp_gmm.weights_])
+            means = np.vstack([pre_split_means, tmp_gmm.means_])
+            covariances = np.vstack([pre_split_covariances, tmp_gmm.covariances_])
+
+            new_gmm = GaussianMixture(n_components=len(weights), covariance_type='full')
+            new_gmm.weights_ = weights
+            new_gmm.means_ = means
+            new_gmm.covariances_ = covariances
+            new_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(new_gmm_covariances))
+
+            post_split_weights.append(new_gmm.weights_)
+            post_split_means.append(new_gmm.means_)
+            post_split_covariances.append(new_gmm.covariances_)
+
+            new_bic = new_gmm.bic(data)
+            post_split_bics.append(new_bic)
+            print(f'splitting {i}th gaussian into {n_gaussians} gaussians with updated bic: {round(new_bic, 2)}')
+
+        pre_split_weights = post_split_weights[-2]
+        pre_split_means = post_split_means[-2]
+        pre_split_covariances = post_split_covariances[-2]
+        post_split_bics = [new_bic, new_bic]
+        
+    # after split
+    post_split_gmm = GaussianMixture(n_components=len(post_split_weights[-2]), covariance_type='full')
+    post_split_gmm.weights_ = post_split_weights[-2]
+    post_split_gmm.means_ = post_split_means[-2]
+    post_split_gmm.covariances_ = post_split_covariances[-2]
+    post_split_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(post_split_gmm.covariances_))
     
-    
-    return pre_split_gmm, init_bic, pre_split_bic
+    return pre_split_gmm, post_split_gmm
