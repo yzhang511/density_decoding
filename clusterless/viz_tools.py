@@ -82,5 +82,34 @@ def confidence_ellipse(x, y, ax, n_std=2.0, facecolor='none', **kwargs):
     ellipse.set_transform(transf + ax.transData)
     return ax.add_patch(ellipse)
 
-def plot_gmm_cluster_viz():
-    return 
+def plot_gmm_cluster_viz(data, labels, probs, n_spikes_display=30_000):
+    '''
+    
+    '''
+    fig, axes = plt.subplots(1, 2, figsize=(8,16)) 
+    colors = [k for k,v in pltc.cnames.items()]
+    for i in range(probs.shape[-1]):
+        if i >= 148:
+            i = i // 4  # only 148 colors available for plotting
+        confidence_ellipse(data[labels == i, 0], data[labels == i, 1], 
+                           axes[0], alpha=0.07, facecolor=colors[i], edgecolor=colors[i], zorder=0)
+        axes[0].scatter(data[labels == i][:n_spikes_display,0], data[labels == i][:n_spikes_display,1], 
+                        s=1, alpha=0.01, c=colors[i])
+        axes[0].set_xlabel('x (um)')
+        axes[0].set_ylabel('z (um)')
+        axes[0].set_title('MoG (initial)')
+
+        confidence_ellipse(data[labels == i, 2], data[labels == i, 1], 
+                           axes[1], alpha=0.07, facecolor=colors[i], edgecolor=colors[i], zorder=0)
+        axes[1].scatter(data[labels == i][:n_spikes_display,2], data[labels == i][:n_spikes_display,1], 
+                        s=1, alpha=0.01, c=colors[i])
+        axes[1].set_xlabel('max ptp (amp)')
+        axes[1].set_ylabel('z (um)')
+        axes[1].set_title(f'n_gaussians = {probs.shape[-1]}')
+
+    for ax in ['top','bottom','left','right']:
+        axes[0].spines[ax].set_linewidth(1.5)
+        axes[1].spines[ax].set_linewidth(1.5)
+
+    plt.tight_layout()
+    plt.show() 
