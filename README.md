@@ -1,8 +1,6 @@
 # clusterless decoding
 clusterless decoding of neural data using a mixture of Gaussians (MoG)
 
-# Motion-invariant variational auto-encoding of brain structural connectomes
-
 Create conda environment and install packages:
 ```
 conda create -n clusterless python=3.8
