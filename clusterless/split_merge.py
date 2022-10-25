@@ -35,7 +35,7 @@ def calc_corr_matrix(probs, tol=0.1):
         for j in range(probs.shape[1]):
             u = probs[:,i].copy()
             v = probs[:,j].copy()
-            corr = calc_spike_corr(u, v)
+            corr = calc_corr(u, v)
             if i != j:
                 corr_mat[i, j] = corr
             elif i == j:
@@ -146,7 +146,7 @@ def split_criteria(data, labels, use_ks_template=False):
 
 def split_gaussians(rootpath, sub_id, data, initial_gmm, initial_labels, split_ids, fit_model=False):
     '''
-    
+    to do: improve split procedure - fit dirichlet gmm? manual split by svd decomp?
     '''
     gmm_name = f'{rootpath}/pretrained/{sub_id}/post_split_gmm'
     
