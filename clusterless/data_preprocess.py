@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.preprocessing import OneHotEncoder
 
 def load_unsorted_data(rootpath, sub_id, keep_active_trials=True, samp_freq=30_000):
     '''
@@ -92,6 +93,7 @@ def preprocess_static_behaviors(behave_dict):
     
     priors = behave_dict[0,:,0,27:28]
     
+    # transform stimulus for plotting
     transformed_stimuli = []
     for s in stimuli:
         if s.argmax()==1:
@@ -99,8 +101,13 @@ def preprocess_static_behaviors(behave_dict):
         else:
             transformed_stimuli.append(s.sum())
     transformed_stimuli = np.array(transformed_stimuli)
+    
+    # convert stimulus to a categeorical variable for decoding
+    enc = OneHotEncoder(handle_unknown='ignore')
+    enc.fit(transformed_stimuli.reshape(-1,1))
+    one_hot_stimuli = enc.transform(transformed_stimuli.reshape(-1,1)).toarray()
 
-    return choices, stimuli, transformed_stimuli, rewards, priors
+    return choices, stimuli, transformed_stimuli, one_hot_stimuli, rewards, priors
  
     
 def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, n_time_bins=30, samp_freq=30_000):
@@ -131,7 +138,7 @@ def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, n
                     gmm_weights_lst[k] = np.sum(time_bin[:,k])
                 time_bins_lst.append(gmm_weights_lst)
             neural_data.append(np.array(time_bins_lst))
-        neural_data = np.array(neural_data).transpose()
+        neural_data = np.array(neural_data).transpose(0,2,1)
     
     elif data_type=='unsorted':
         spikes_indices = data.copy() / samp_freq

@@ -27,7 +27,7 @@ def calc_corr(u, v):
 
 def calc_corr_matrix(probs, tol=0.1):
     '''
-    
+    to do: speed up this operation; only do lower triangular entries.
     '''
     
     corr_mat = np.zeros((probs.shape[1], probs.shape[1]))
@@ -260,7 +260,7 @@ def merge_gaussians(rootpath, sub_id, data, post_split_gmm, post_split_labels, m
         pre_merge_gmm.means_ = pre_merge_means
         pre_merge_gmm.covariances_ = pre_merge_covariances
         pre_merge_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(pre_merge_covariances))
-        pre_merge_bic = pre_merge_gmm.bic(X)
+        pre_merge_bic = pre_merge_gmm.bic(data)
         print(f'pre-merge bic: {round(pre_merge_bic, 2)}')
         
         # merge

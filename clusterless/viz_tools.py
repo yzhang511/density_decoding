@@ -81,7 +81,7 @@ def confidence_ellipse(x, y, ax, n_std=2.0, facecolor='none', **kwargs):
 
 def plot_gmm_cluster_viz(data, labels, labels_display, n_spikes_display=30_000):
     '''
-    
+    to do: fix bug in num of gaussians to display (repeated labels after split)
     '''
     fig, axes = plt.subplots(1, 2, figsize=(8,16)) 
     colors = [k for k,v in pltc.cnames.items()]
