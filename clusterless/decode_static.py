@@ -10,10 +10,10 @@ def decode_static(x_train, x_test, y_train, y_test, behave_type, seed=666):
     '''
     
     if np.logical_or(behave_type == 'choice', behave_type == 'stimulus'):
-        x_train = x_train.reshape(-1, x_train[1]*x_train[-1])
-        x_test = x_test.reshape(-1, x_test[1]*x_test[-1])
+        x_train = x_train.reshape(-1, x_train.shape[1]*x_train.shape[-1])
+        x_test = x_test.reshape(-1, x_test.shape[1]*x_test.shape[-1])
         decoder = SVC(random_state=seed, max_iter=1e4, tol = 0.01, kernel='rbf', probability=True).fit(x_train, y_train.argmax(1))
-        probs = clf.predict_proba(x_test)
+        probs = decoder.predict_proba(x_test)
         preds = probs.argmax(1)
         acc = accuracy_score(y_test.argmax(1), preds)
         auc = roc_auc_score(y_test, probs)
@@ -28,7 +28,7 @@ def cv_decode_static(x, y, behave_type, n_folds=5, seed=666, shuffle=True):
     
     kf = KFold(n_splits=n_folds, random_state=seed, shuffle=shuffle)
     
-    fold = 1
+    fold = 0
     cv_accs = []; cv_aucs = []; cv_ids = []
     cv_obs = []; cv_preds = []; cv_probs = []
     for train, test in kf.split(x):

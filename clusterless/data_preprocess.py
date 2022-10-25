@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 
 def load_unsorted_data(rootpath, sub_id, keep_active_trials=True, samp_freq=30_000):
@@ -54,7 +55,30 @@ def load_kilosort_sorted_data(rootpath, sub_id, keep_active_trials = True, samp_
     return spikes_times, spikes_clusters, spikes_amps, spikes_depths, sorted, trials
 
 
-# to do: load_kilosort_good_ibl_units()
+def load_kilosort_good_ibl_units(rootpath, sub_id, keep_active_trials = True, samp_freq=30_000):
+    '''
+    
+    '''
+    
+    spikes_times = np.load(f'{rootpath}/{sub_id}/sorted/spikes_times.npy')
+    spikes_clusters = np.load(f'{rootpath}/{sub_id}/sorted/spikes_clusters.npy')
+    good_ibl_units = np.load(f'{rootpath}/{sub_id}/sorted/good_ibl_units.npy')
+    stimulus_onset_times = np.load(f'{rootpath}/{sub_id}/misc/stimulus_onset_times.npy') # unit: seconds
+    
+    if keep_active_trials:
+        active_trials_ids = np.load(f'{rootpath}/{sub_id}/behaviors/active_trials_ids.npy')
+        stimulus_onset_times = stimulus_onset_times[active_trials_ids]
+        
+    n_units = len(good_ibl_units)
+    spikes_indices = np.concatenate([spikes_times.reshape(-1,1), spikes_clusters.reshape(-1,1)], axis=1)
+    good_sorted_data = np.vstack([spikes_indices[spikes_indices[:,1].astype(int) == unit] for unit in good_ibl_units])
+    tmp = pd.DataFrame({'time': good_sorted_data[:,0], 'old_unit': good_sorted_data[:,1].astype(int)})
+    tmp["old_unit"] = tmp["old_unit"].astype("category")
+    tmp["new_unit"] = pd.factorize(tmp.old_unit)[0]
+    good_sorted_indices = np.array(tmp)[:,[0,2]]
+    
+    return good_sorted_indices
+
 
 # to do: load_kilosort_unsorted_data()
     
@@ -156,11 +180,27 @@ def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, n
             neural_data.append(spike_count)
         neural_data = np.array(neural_data)
         
-    else:
-        spike_times, spike_clusters = data
-        spike_times = spike_times * samp_freq
-        n_neurons = len(np.unique(spike_clusters))
-        spikes_indices = np.concatenate([spike_times.reshape(-1,1), spike_clusters.reshape(-1,1)], axis=1)
+    elif data_type=='sorted':
+        spikes_times, spikes_clusters = data
+        spikes_times = spikes_times * samp_freq
+        n_neurons = len(np.unique(spikes_clusters))
+        spikes_indices = np.concatenate([spikes_times.reshape(-1,1), spikes_clusters.reshape(-1,1)], axis=1)
+        for i in range(n_trials):
+            mask = np.logical_and(spikes_indices[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,
+                                  spikes_indices[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )
+            trial = spikes_indices[mask,:]
+            trial[:,0] = (trial[:,0] - trial[:,0].min()) / samp_freq
+            neurons = trial[:,1].astype(int)
+            time_bins = np.digitize(trial[:,0], binning, right=False)-1
+            spike_count = np.zeros([n_neurons, n_time_bins])
+            np.add.at(spike_count, (neurons, time_bins), 1) 
+            neural_data.append(spike_count)
+        neural_data = np.array(neural_data)
+    
+    elif data_type=='good units':
+        spikes_indices = data
+        spikes_indices[:,0] = spikes_indices[:,0] * samp_freq
+        n_neurons = len(np.unique(spikes_indices[:,1]))
         for i in range(n_trials):
             mask = np.logical_and(spikes_indices[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,
                                   spikes_indices[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )
