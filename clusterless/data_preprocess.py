@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 
-def load_unsorted_data(rootpath, sub_id, keep_active_trials=True, samp_freq=30_000):
+def load_unsorted_data(rootpath, sub_id, roi='all', keep_active_trials=True, samp_freq=30_000):
     '''
     
     '''
@@ -16,17 +16,39 @@ def load_unsorted_data(rootpath, sub_id, keep_active_trials=True, samp_freq=30_0
         active_trials_ids = np.load(f'{rootpath}/{sub_id}/behaviors/active_trials_ids.npy')
         stimulus_onset_times = stimulus_onset_times[active_trials_ids]
         
-    # add z_reg later 
-    unsorted = np.concatenate([spikes_indices[:,0].reshape(-1,1), spikes_features[:,[0,2,4]]], axis=1)
-    trials = []
-    for i in range(stimulus_onset_times.shape[0]):
-        mask = np.logical_and(unsorted[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,   
-                             unsorted[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )        # 1.5 secs / trial
-        trial = unsorted[mask,:]
-        # trial[:,0] = (trial[:,0] - trial[:,0].min()) / samp_freq
-        trials.append(trial)
+    if roi != 'all':
+        clusters_channels = np.load(f'{rootpath}/{sub_id}/sorted/clusters_channels.npy', allow_pickle=True)
+        channels_rois = np.load(f'{rootpath}/{sub_id}/sorted/channels_rois.npy', allow_pickle=True)
+        channels_rois = np.vstack([np.arange(384), channels_rois]).transpose()
+        valid_channels = channels_rois[channels_rois[:,-1] == roi, 0]
+        valid_channels = np.unique(valid_channels).astype(int)
+        print(f'found {len(valid_channels)} channels in roi {roi}')
+        
+        # add z_reg later 
+        unsorted = np.concatenate([spikes_indices, spikes_features[:,[0,2,4]]], axis=1)
+        regional = []
+        for i in valid_channels:
+            regional.append(unsorted[unsorted[:,1] == i])
+        regional = np.vstack(regional)
+        trials = []
+        for i in range(stimulus_onset_times.shape[0]):
+            mask = np.logical_and(regional[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,   
+                             regional[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq ) 
+            trial = regional[mask,:]
+            trials.append(trial[:,[0,1,2,3,4]]) 
+        return trials
     
-    return spikes_indices, spikes_features, np1_channel_map, stimulus_onset_times, unsorted, trials
+    else:
+        # add z_reg later 
+        unsorted = np.concatenate([spikes_indices[:,0].reshape(-1,1), spikes_features[:,[0,2,4]]], axis=1)
+        trials = []
+        for i in range(stimulus_onset_times.shape[0]):
+            mask = np.logical_and(unsorted[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,   
+                                 unsorted[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )        # 1.5 secs / trial
+            trial = unsorted[mask,:]
+            # trial[:,0] = (trial[:,0] - trial[:,0].min()) / samp_freq
+            trials.append(trial)
+        return spikes_indices, spikes_features, np1_channel_map, stimulus_onset_times, unsorted, trials
     
     
     
@@ -143,9 +165,10 @@ def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, n
     neural_data = []
     
     if data_type=='clusterless':
-        spike_times, spike_labels, spike_probs = data
-        n_gaussians = spike_probs.shape[1]
-        trials = np.hstack([spike_times.reshape(-1,1), spike_labels.reshape(-1,1), spike_probs])
+        spikes_times, spikes_labels, spikes_probs = data
+        n_gaussians = len(np.unique(spikes_labels))
+        spikes_probs = spikes_probs[:, np.unique(spikes_labels)]
+        trials = np.hstack([spikes_times.reshape(-1,1), spikes_labels.reshape(-1,1), spikes_probs])
 
         for i in range(n_trials):
             mask = np.logical_and(trials[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,

@@ -99,7 +99,7 @@ def plot_gmm_cluster_viz(data, labels, labels_display, n_spikes_display=30_000):
                         s=1, alpha=0.01, c=colors[c])
         axes[0].set_xlabel('x (um)')
         axes[0].set_ylabel('z (um)')
-        axes[0].set_title('MoG (initial)')
+        axes[0].set_title('MoG')
 
         confidence_ellipse(data[labels == i, 2], data[labels == i, 1], 
                            axes[1], alpha=0.07, facecolor=colors[c], edgecolor=colors[c], zorder=0)
