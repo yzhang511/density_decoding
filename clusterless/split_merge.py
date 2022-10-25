@@ -27,7 +27,7 @@ def calc_corr(u, v):
 
 def calc_corr_matrix(probs, tol=0.1):
     '''
-    to do: fix probe geometry sparsity issue.
+    
     '''
     
     corr_mat = np.zeros((probs.shape[1], probs.shape[1]))
@@ -228,7 +228,89 @@ def split_gaussians(rootpath, sub_id, data, initial_gmm, initial_labels, split_i
         
     return post_split_gmm
 
+def merge_criteria(corr_mat, threshold):
+    '''
+    to do: fix probe geometry sparsity issue.
+    '''
+    merge_ids = np.argwhere(corr_mat > threshold)
+    return merge_ids
 
 
 
+def merge_gaussians(rootpath, sub_id, data, post_split_gmm, post_split_labels, merge_ids, fit_model=False):
+    '''
+    
+    '''
+    gmm_name = f'{rootpath}/pretrained/{sub_id}/post_merge_gmm'
+    
+    if fit_model:
+        # before merge
+        init_bic = post_split_gmm.bic(data)
+        print(f'initial n_gaussians: {len(post_split_gmm.means_)} bic: {round(init_bic, 2)}')
 
+        pre_merge_labels = set(np.unique(post_split_labels)).difference(set(np.unique(merge_ids)))
+        print(f'keep {len(pre_merge_labels)} gaussians and merge {len(merge_ids)} gaussians ...')
+
+        pre_merge_weights = np.vstack([post_split_gmm.weights_[i] for i in pre_merge_labels]).squeeze()
+        pre_merge_means = np.vstack([post_split_gmm.means_[i] for i in pre_merge_labels])
+        pre_merge_covariances = np.stack([post_split_gmm.covariances_[i] for i in pre_merge_labels])
+
+        pre_merge_gmm = GaussianMixture(n_components = len(pre_merge_weights), covariance_type='full')
+        pre_merge_gmm.weights_ = pre_merge_weights
+        pre_merge_gmm.means_ = pre_merge_means
+        pre_merge_gmm.covariances_ = pre_merge_covariances
+        pre_merge_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(pre_merge_covariances))
+        pre_merge_bic = pre_merge_gmm.bic(X)
+        print(f'pre-merge bic: {round(pre_merge_bic, 2)}')
+        
+        # merge
+        post_merge_weights = [pre_merge_weights]
+        post_merge_means = [pre_merge_means]
+        post_merge_covariances = [pre_merge_covariances]
+
+        for i, j in merge_ids:
+            tmp_gmm = GaussianMixture(n_components=1)
+            tmp_gmm.fit(np.vstack([data[post_split_labels == i], data[post_split_labels == j]]))
+
+            weights = np.hstack([pre_merge_weights, tmp_gmm.weights_])
+            means = np.vstack([pre_merge_means, tmp_gmm.means_])
+            covariances = np.vstack([pre_merge_covariances, tmp_gmm.covariances_])
+
+            new_gmm = GaussianMixture(n_components = len(weights), covariance_type='full')
+            new_gmm.weights_ = weights
+            new_gmm.means_ = means
+            new_gmm.covariances_ = covariances
+            new_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(covariances))
+
+            post_merge_weights.append(new_gmm.weights_)
+            post_merge_means.append(new_gmm.means_)
+            post_merge_covariances.append(new_gmm.covariances_)
+
+            post_merge_bic = new_gmm.bic(data)
+            print(f'merge pairs {i} and {j} with updated bic: {round(post_merge_bic, 2)}')
+
+            pre_merge_weights = post_merge_weights[-1]
+            pre_merge_means = post_merge_means[-1]
+            pre_merge_covariances = post_merge_covariances[-1]
+        
+        # after merge
+        post_merge_gmm = GaussianMixture(n_components=len(post_merge_weights[-1]), covariance_type='full')
+        post_merge_gmm.weights_ = post_merge_weights[-1]
+        post_merge_gmm.means_ = post_merge_means[-1]
+        post_merge_gmm.covariances_ = post_merge_covariances[-1]
+        post_merge_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(post_merge_gmm.covariances_))
+        
+        np.save(gmm_name + '_weights', post_merge_gmm.weights_, allow_pickle=False)
+        np.save(gmm_name + '_means', post_merge_gmm.means_, allow_pickle=False)
+        np.save(gmm_name + '_covariances', post_merge_gmm.covariances_, allow_pickle=False)
+    else:
+        means = np.load(gmm_name + '_means.npy')
+        covar = np.load(gmm_name + '_covariances.npy')
+        post_merge_gmm = GaussianMixture(n_components=len(means), covariance_type='full')
+        post_merge_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(covar))
+        post_merge_gmm.weights_ = np.load(gmm_name + '_weights.npy')
+        post_merge_gmm.means_ = means
+        post_merge_gmm.covariances_ = covar
+        
+    return post_merge_gmm
+        
