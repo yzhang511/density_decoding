@@ -52,7 +52,7 @@ def load_unsorted_data(rootpath, sub_id, roi='all', keep_active_trials=True, sam
     
     
     
-def load_kilosort_sorted_data(rootpath, sub_id, keep_active_trials = True, samp_freq=30_000):
+def load_kilosort_sorted_data(rootpath, sub_id, roi='all', keep_active_trials = True, samp_freq=30_000):
     '''
     
     '''    
@@ -67,17 +67,36 @@ def load_kilosort_sorted_data(rootpath, sub_id, keep_active_trials = True, samp_
         stimulus_onset_times = stimulus_onset_times[active_trials_ids]
     
     sorted = np.concatenate([spikes_times.reshape(-1,1), spikes_clusters.reshape(-1,1)], axis=1)
-    trials = []
-    for i in range(stimulus_onset_times.shape[0]):
-        mask = np.logical_and(sorted[:,0]*samp_freq >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,   
-                             sorted[:,0]*samp_freq <= stimulus_onset_times[i]*samp_freq+samp_freq ) 
-        trial = sorted[mask,:]
-        trial[:,0] = (trial[:,0] - trial[:,0].min()) 
-        trials.append(trial)
-    return spikes_times, spikes_clusters, spikes_amps, spikes_depths, sorted, trials
+    
+    if roi != 'all':
+        clusters_channels = np.load(f'{rootpath}/{sub_id}/sorted/clusters_channels.npy', allow_pickle=True)
+        channels_rois = np.load(f'{rootpath}/{sub_id}/sorted/channels_rois.npy', allow_pickle=True)
+        channels_rois = np.vstack([np.arange(384), channels_rois]).transpose()
+        valid_channels = channels_rois[channels_rois[:,-1] == roi, 0]
+        valid_channels = np.unique(valid_channels).astype(int)
+        valid_units = []
+        for c in valid_channels:
+            units_per_channel = list(np.where(clusters_channels == c)[0])
+            if len(units_per_channel) != 0:
+                for unit_idx in units_per_channel: 
+                    valid_units.append(unit_idx)
+        regional = []
+        for unit in valid_units:
+            regional.append(sorted[sorted[:,1] == unit])
+        regional = np.vstack(regional)
+        return regional
+    else:
+        trials = []
+        for i in range(stimulus_onset_times.shape[0]):
+            mask = np.logical_and(sorted[:,0]*samp_freq >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,   
+                                 sorted[:,0]*samp_freq <= stimulus_onset_times[i]*samp_freq+samp_freq ) 
+            trial = sorted[mask,:]
+            trial[:,0] = (trial[:,0] - trial[:,0].min()) 
+            trials.append(trial)
+        return spikes_times, spikes_clusters, spikes_amps, spikes_depths, sorted, trials
 
 
-def load_kilosort_good_ibl_units(rootpath, sub_id, keep_active_trials = True, samp_freq=30_000):
+def load_kilosort_good_ibl_units(rootpath, sub_id, roi='all', keep_active_trials = True, samp_freq=30_000):
     '''
     
     '''
@@ -91,14 +110,30 @@ def load_kilosort_good_ibl_units(rootpath, sub_id, keep_active_trials = True, sa
         active_trials_ids = np.load(f'{rootpath}/{sub_id}/behaviors/active_trials_ids.npy')
         stimulus_onset_times = stimulus_onset_times[active_trials_ids]
         
-    n_units = len(good_ibl_units)
     spikes_indices = np.concatenate([spikes_times.reshape(-1,1), spikes_clusters.reshape(-1,1)], axis=1)
-    good_sorted_data = np.vstack([spikes_indices[spikes_indices[:,1].astype(int) == unit] for unit in good_ibl_units])
+        
+    if roi != 'all':
+        clusters_channels = np.load(f'{rootpath}/{sub_id}/sorted/clusters_channels.npy', allow_pickle=True)
+        channels_rois = np.load(f'{rootpath}/{sub_id}/sorted/channels_rois.npy', allow_pickle=True)
+        channels_rois = np.vstack([np.arange(384), channels_rois]).transpose()
+        valid_channels = channels_rois[channels_rois[:,-1] == roi, 0]
+        valid_channels = np.unique(valid_channels).astype(int)
+        valid_units = []
+        for c in valid_channels:
+            units_per_channel = list(np.where(clusters_channels == c)[0])
+            if len(units_per_channel) != 0:
+                for unit_idx in units_per_channel: 
+                    valid_units.append(unit_idx)
+        good_regional_units = np.intersect1d(valid_units, good_ibl_units)
+        good_sorted_data = np.vstack([spikes_indices[spikes_indices[:,1].astype(int) == unit] for unit in good_regional_units])
+    else:
+        good_sorted_data = np.vstack([spikes_indices[spikes_indices[:,1].astype(int) == unit] for unit in good_ibl_units])
+        
     tmp = pd.DataFrame({'time': good_sorted_data[:,0], 'old_unit': good_sorted_data[:,1].astype(int)})
     tmp["old_unit"] = tmp["old_unit"].astype("category")
     tmp["new_unit"] = pd.factorize(tmp.old_unit)[0]
     good_sorted_indices = np.array(tmp)[:,[0,2]]
-    
+        
     return good_sorted_indices
 
 
@@ -156,7 +191,7 @@ def preprocess_static_behaviors(behave_dict):
     return choices, stimuli, transformed_stimuli, one_hot_stimuli, rewards, priors
  
     
-def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, n_time_bins=30, samp_freq=30_000):
+def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, regional=False, n_time_bins=30, samp_freq=30_000):
     '''
     for gmm, unsorted, sorted.
     '''
@@ -188,8 +223,16 @@ def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, n
         neural_data = np.array(neural_data).transpose(0,2,1)
     
     elif data_type=='unsorted':
+        if regional:
+            n_channels = len(np.unique(data[:,1]))
+            tmp = pd.DataFrame({'time': data[:, 0], 'old_channel': data[:,1].astype(int)})
+            tmp["old_channel"] = tmp["old_channel"].astype("category")
+            tmp["new_channel"] = pd.factorize(tmp.old_channel)[0]
+            data = np.array(tmp)[:,[0,2]] 
+        else:
+            n_channels = 384
+            
         spikes_indices = data.copy() / samp_freq
-        n_channels = 384
         for i in range(n_trials):
             mask = np.logical_and(spikes_indices[:,0]*samp_freq >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,
                                   spikes_indices[:,0]*samp_freq <= stimulus_onset_times[i]*samp_freq+samp_freq )
@@ -204,10 +247,17 @@ def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, n
         neural_data = np.array(neural_data)
         
     elif data_type=='sorted':
-        spikes_times, spikes_clusters = data
-        spikes_times = spikes_times * samp_freq
-        n_neurons = len(np.unique(spikes_clusters))
-        spikes_indices = np.concatenate([spikes_times.reshape(-1,1), spikes_clusters.reshape(-1,1)], axis=1)
+        if regional:
+            n_neurons = len(np.unique(data[:,1]))
+            tmp = pd.DataFrame({'time': data[:,0]*samp_freq, 'old_unit': data[:,1].astype(int)})
+            tmp['old_unit'] = tmp['old_unit'].astype('category')
+            tmp['new_unit'] = pd.factorize(tmp.old_unit)[0]
+            spikes_indices = np.array(tmp)[:,[0,2]]
+        else:
+            spikes_times, spikes_clusters = data
+            spikes_times = spikes_times * samp_freq
+            n_neurons = len(np.unique(spikes_clusters))
+            spikes_indices = np.concatenate([spikes_times.reshape(-1,1), spikes_clusters.reshape(-1,1)], axis=1)
         for i in range(n_trials):
             mask = np.logical_and(spikes_indices[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,
                                   spikes_indices[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )
