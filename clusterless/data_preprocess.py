@@ -21,7 +21,7 @@ def load_unsorted_data(rootpath, sub_id, keep_active_trials=True, samp_freq=30_0
         mask = np.logical_and(unsorted[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,   
                              unsorted[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )        # 1.5 secs / trial
         trial = unsorted[mask,:]
-        trial[:,0] = (trial[:,0] - trial[:,0].min()) / samp_freq
+        # trial[:,0] = (trial[:,0] - trial[:,0].min()) / samp_freq
         trials.append(trial)
     
     return spikes_indices, spikes_features, np1_channel_map, stimulus_onset_times, unsorted, trials
@@ -101,5 +101,69 @@ def preprocess_static_behaviors(behave_dict):
     transformed_stimuli = np.array(transformed_stimuli)
 
     return choices, stimuli, transformed_stimuli, rewards, priors
+ 
     
-# to do: compute_time_binned_neural_activity() - for clusterless, unsorted, sorted. 
+def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, n_time_bins=30, samp_freq=30_000):
+    '''
+    for gmm, unsorted, sorted.
+    '''
+    binning = np.arange(0, 1.5, step=(1.5 - 0)/n_time_bins)
+    n_trials = stimulus_onset_times.shape[0]
+    neural_data = []
+    
+    if data_type=='clusterless':
+        spike_times, spike_labels, spike_probs = data
+        n_gaussians = spike_probs.shape[1]
+        trials = np.hstack([spike_times.reshape(-1,1), spike_labels.reshape(-1,1), spike_probs])
+
+        for i in range(n_trials):
+            mask = np.logical_and(trials[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,
+                                  trials[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq
+                                 )
+            trial = trials[mask,:]
+            trial[:,0] = (trial[:,0] - trial[:,0].min()) / samp_freq
+            time_bins = np.digitize(trial[:,0], binning, right=False)-1
+            time_bins_lst = []
+            for t in range(n_time_bins):
+                time_bin = trial[time_bins == t, 2:]
+                gmm_weights_lst = np.zeros(n_gaussians)
+                for k in range(n_gaussians):
+                    gmm_weights_lst[k] = np.sum(time_bin[:,k])
+                time_bins_lst.append(gmm_weights_lst)
+            neural_data.append(np.array(time_bins_lst))
+        neural_data = np.array(neural_data).transpose()
+    
+    elif data_type=='unsorted':
+        spikes_indices = data.copy() / samp_freq
+        n_channels = 384
+        for i in range(n_trials):
+            mask = np.logical_and(spikes_indices[:,0]*samp_freq >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,
+                                  spikes_indices[:,0]*samp_freq <= stimulus_onset_times[i]*samp_freq+samp_freq )
+            trial = spikes_indices[mask,:]
+            trial[:,0] = (trial[:,0] - trial[:,0].min()) 
+            trial[:,1] = trial[:,1] * samp_freq
+            channels = trial[:,1].astype(int)
+            time_bins = np.digitize(trial[:,0], binning, right=False)-1
+            spike_count = np.zeros([n_channels, n_time_bins])
+            np.add.at(spike_count, (channels, time_bins), 1) 
+            neural_data.append(spike_count)
+        neural_data = np.array(neural_data)
+        
+    else:
+        spike_times, spike_clusters = data
+        spike_times = spike_times * samp_freq
+        n_neurons = len(np.unique(spike_clusters))
+        spikes_indices = np.concatenate([spike_times.reshape(-1,1), spike_clusters.reshape(-1,1)], axis=1)
+        for i in range(n_trials):
+            mask = np.logical_and(spikes_indices[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,
+                                  spikes_indices[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )
+            trial = spikes_indices[mask,:]
+            trial[:,0] = (trial[:,0] - trial[:,0].min()) / samp_freq
+            neurons = trial[:,1].astype(int)
+            time_bins = np.digitize(trial[:,0], binning, right=False)-1
+            spike_count = np.zeros([n_neurons, n_time_bins])
+            np.add.at(spike_count, (neurons, time_bins), 1) 
+            neural_data.append(spike_count)
+        neural_data = np.array(neural_data)
+    
+    return neural_data

@@ -47,10 +47,6 @@ def plot_spikes_features(trials, trials_ids):
     plt.ylabel("z (um)")
     plt.title(f'spikes collected over {len(trials_ids)} trials')
     plt.colorbar(label="ptp (amp)");
-    
-    
-def plot_time_series_heatmap():
-    return
 
 
 def plot_static_behavior_traces():
