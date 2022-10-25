@@ -67,13 +67,13 @@ def load_behaviors_data(rootpath, sub_id):
     return behave_dict, behave_idx_dict
     
 
-def load_kilosort_template_feature_mads(rootpath, sub_id):
+def load_kilosort_template_feature_mads(rootpath):
     '''
     
     '''    
-    temp_amps = np.load(f'{rootpath}/{sub_id}/misc/ks_template_amps.npy')
-    x_mad_scaled = np.load(f'{rootpath}/{sub_id}/misc/x_mad_scaled.npy')
-    z_mad_scaled = np.load(f'{rootpath}/{sub_id}/misc/z_mad_scaled.npy')
+    temp_amps = np.load(f'{rootpath}/kilosort_template/ks_template_amps.npy')
+    x_mad_scaled = np.load(f'{rootpath}/kilosort_template/x_mad_scaled.npy')
+    z_mad_scaled = np.load(f'{rootpath}/kilosort_template/z_mad_scaled.npy')
     return temp_amps, x_mad_scaled, z_mad_scaled
     
 def preprocess_static_behaviors(behave_dict):

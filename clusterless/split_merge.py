@@ -1,7 +1,9 @@
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 from sklearn.mixture import GaussianMixture
-
+from scipy.interpolate import UnivariateSpline
+from .data_preprocess import load_kilosort_template_feature_mads
 
 def calc_mad(arr):
     """ 
@@ -11,19 +13,82 @@ def calc_mad(arr):
     med = np.median(arr)
     return np.median(np.abs(arr - med))
 
+
 def calc_component_ptp_dependent_feature_mads(data, labels, comp_idx):
     avg_ptp = data[labels == comp_idx][:,-1].mean()
     mad_x = calc_mad(data[labels == comp_idx][:,0])
     mad_z = calc_mad(data[labels == comp_idx][:,1])
     return avg_ptp, mad_x, mad_z
 
-def calc_smooth_envelope_feature_mads():
-    return
+
+def calc_corr(u, v):
+    return np.dot(u, v) / (np.linalg.norm(u)*np.linalg.norm(v))
 
 
-def split_criteria(data, labels, template_amps, envelope_xs, envelope_zs):
+def calc_corr_matrix(probs, tol=0.1):
+    '''
+    to do: fix probe geometry sparsity issue.
     '''
     
+    corr_mat = np.zeros((probs.shape[1], probs.shape[1]))
+    for i in range(probs.shape[1]):
+        for j in range(probs.shape[1]):
+            u = probs[:,i].copy()
+            v = probs[:,j].copy()
+            corr = calc_spike_corr(u, v)
+            if i != j:
+                corr_mat[i, j] = corr
+            elif i == j:
+                corr_mat[i, j] = 0  # exclude self-correlation
+    return corr_mat
+
+
+def calc_smooth_envelope_feature_mads(temp_amps, mad_xs, mad_zs, use_ks_template=False):
+    '''
+    monotonic smoothing envelopes for x and z. 
+    to do: change ad hoc smoothing params.
+    to do: remove using our features.
+    '''
+    
+    # interpolate x
+    offset = mad_xs.copy()
+    if use_ks_template:   
+        offset[:15] = offset[:15]+4.
+        offset[15:20] = offset[15:20]+6.
+        offset[20:] = offset[20:]+3.
+    else:
+        offset[:15] = offset[:15]+10.
+        offset[15:20] = offset[15:20]+6.
+        offset[20:] = offset[20:]+2.
+    xs = np.linspace(temp_amps.min(), temp_amps.max(), 6)
+    spl1 = UnivariateSpline(temp_amps, offset)
+    spl2 = UnivariateSpline(xs, spl1(xs))
+    xs2 = np.linspace(xs.min(), xs.max(), 40)
+    envelope_xs = spl2(xs2)
+    
+    # interpolate z
+    offset = mad_zs.copy()
+    if use_ks_template: 
+        offset[:15] = offset[:15]+8.
+        offset[15:] = offset[15:]+4.
+        zs = np.linspace(temp_amps.min(), temp_amps.max(), 4)
+    else:
+        offset[:15] = offset[:15]+15.
+        offset[15:20] = offset[15:20]+10.
+        offset[20:] = offset[20:]+3.
+        zs = np.linspace(temp_amps.min(), temp_amps.max(), 6)
+    spl1 = UnivariateSpline(temp_amps, offset)
+    spl2 = UnivariateSpline(zs, spl1(zs))
+    zs2 = np.linspace(zs.min(), zs.max(), 40)
+    envelope_zs = spl2(zs2)
+
+    return xs2, zs2, envelope_xs, envelope_zs
+
+
+def split_criteria(data, labels, use_ks_template=False):
+    '''
+    to do: fix scale mismatch btw kilosort template features and our features.
+    to do: remove using our features.
     '''
     
     avg_ptps = []
@@ -34,86 +99,136 @@ def split_criteria(data, labels, template_amps, envelope_xs, envelope_zs):
         avg_ptps.append(avg_ptp)
         mad_xs.append(mad_x)
         mad_zs.append(mad_z)
+    avg_ptps = np.array(avg_ptps)
     mad_xs = np.array(mad_xs)
     mad_zs = np.array(mad_zs)
     
-    ptp_bins = [np.argmin(np.abs(template_amps - ptp)) for ptp in avg_ptps] # check this
-    std_mad_xs = (mad_xs - mad_xs.min()) / (mad_xs.max() - mad_xs.min())
-    std_mad_zs = (mad_zs - mad_zs.min()) / (mad_zs.max() - mad_zs.min())
-    std_envelope_xs = (envelope_xs - envelope_xs.min()) / (envelope_xs.max() - envelope_xs.min())
-    std_envelope_zs = (envelope_zs - envelope_zs.min()) / (envelope_zs.max() - envelope_zs.min())
-
+    if use_ks_template:
+        binned_ptps, binned_xs, binned_zs = load_kilosort_template_feature_mads('data')
+        xs, zs, envelope_xs, envelope_zs = \
+        calc_smooth_envelope_feature_mads(binned_ptps, binned_xs, binned_zs, use_ks_template=use_ks_template)
+        closest_bin_ids = [np.argmin(np.abs(binned_ptps - ptp)) for ptp in avg_ptps]    
+    else:
+        for bin_size in range(200):
+            ptp_bins = np.linspace(np.min(avg_ptps), np.max(avg_ptps), bin_size) 
+            ptp_masks = np.digitize(avg_ptps, ptp_bins, right=True)
+            if len(np.unique(ptp_masks)) == 40:
+                break
+        binned_ptps = np.array([avg_ptps[ptp_masks == bin].mean() for bin in np.unique(ptp_masks)])
+        binned_xs = np.array([mad_xs[ptp_masks == bin].mean() for bin in np.unique(ptp_masks)])
+        binned_zs = np.array([mad_zs[ptp_masks == bin].mean() for bin in np.unique(ptp_masks)])
+        closest_ptp_bins = [np.argmin(np.abs(ptp_bins - ptp)) for ptp in avg_ptps]
+        closest_bin_ids = [np.argmin(np.abs(np.unique(ptp_masks) - bin_id)) for bin_id in closest_ptp_bins]
+        xs, zs, envelope_xs, envelope_zs = \
+        calc_smooth_envelope_feature_mads(binned_ptps, binned_xs, binned_zs, use_ks_template=use_ks_template)
+        
+    fig, axes = plt.subplots(1,2, figsize=(10,3))
+    axes[0].plot(binned_ptps, binned_xs, label='x', linestyle='dashed')
+    axes[0].plot(xs, envelope_xs, label='envelope x', linewidth=2)
+    axes[0].set_xlabel('template amplitude')
+    axes[0].set_ylabel('feature MAD')
+    axes[0].legend();
+    axes[1].plot(binned_ptps, binned_zs, label='z', linestyle='dashed')
+    axes[1].plot(zs, envelope_zs, label='envelope z', linewidth=2)
+    axes[1].legend();
+    axes[1].set_xlabel('template amplitude')
+    plt.tight_layout()
+    plt.show()
+          
     split_ids = []
     for i in range(len(avg_ptps)):
-        if np.logical_or(std_mad_xs[i] > std_envelope_xs[ptp_bins[i]], 
-                         std_mad_zs[i] > std_envelope_zs[ptp_bins[i]]):
+        if np.logical_or(mad_xs[i] > envelope_xs[closest_bin_ids[i]], 
+                         mad_xs[i] > envelope_zs[closest_bin_ids[i]]):
             split_ids.append(i)
+            
     return split_ids
 
-def split_gaussians(data, initial_gmm, initial_labels, split_ids):
+
+def split_gaussians(rootpath, sub_id, data, initial_gmm, initial_labels, split_ids, fit_model=False):
     '''
     
     '''
-    # before split
-    init_bic = initial_gmm.bic(data)
-    print(f'initial n_gaussians: {len(initial_gmm.means_)} bic: {round(init_bic, 2)}')
-
-    pre_split_labels = set(np.unique(initial_labels)).difference(set(split_ids))
-    print(f'keep {len(pre_split_labels)} gaussians and split {len(split_ids)} gaussians ...')
-
-    weights = np.vstack([initial_gmm.weights_[i] for i in pre_split_labels]).squeeze()
-    means = np.vstack([initial_gmm.means_[i] for i in pre_split_labels])
-    covariances = np.stack([initial_gmm.covariances_[i] for i in pre_split_labels])
-
-    pre_split_gmm = GaussianMixture(n_components=len(gmm_weights), covariance_type='full')
-    pre_split_gmm.weights_ = weights
-    pre_split_gmm.means_ = means
-    pre_split_gmm.covariances_ = covariances
-    pre_split_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(covariances))
-    pre_split_bic = pre_split_gmm.bic(data)
-    print(f'pre-split bic: {round(pre_split_bic, 2)}')
+    gmm_name = f'{rootpath}/pretrained/{sub_id}/post_split_gmm'
     
-    # split
-    post_split_weights = [pre_split_gmm.weights_]
-    post_split_means = [pre_split_gmm.means_]
-    post_split_covariances = [pre_split_gmm.covariances_]
-    post_split_bics = [pre_split_bic, pre_split_bic]
-    
-    for i in split_ids:
-        n_gaussians = 1
-        while post_split_bics[-1] <= post_split_bics[-2]:
-            n_gaussians += 1
-            tmp_gmm = GaussianMixture(n_components=n_gaussians)
-            tmp_gmm.fit(data[labels == i])
+    if fit_model:
+        # before split
+        init_bic = initial_gmm.bic(data)
+        print(f'initial n_gaussians: {len(initial_gmm.means_)} bic: {round(init_bic, 2)}')
 
-            weights = np.hstack([pre_split_weights, tmp_gmm.weights_])
-            means = np.vstack([pre_split_means, tmp_gmm.means_])
-            covariances = np.vstack([pre_split_covariances, tmp_gmm.covariances_])
+        pre_split_labels = set(np.unique(initial_labels)).difference(set(split_ids))
+        print(f'keep {len(pre_split_labels)} gaussians and split {len(split_ids)} gaussians ...')
 
-            new_gmm = GaussianMixture(n_components=len(weights), covariance_type='full')
-            new_gmm.weights_ = weights
-            new_gmm.means_ = means
-            new_gmm.covariances_ = covariances
-            new_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(new_gmm_covariances))
+        pre_split_weights = np.vstack([initial_gmm.weights_[i] for i in pre_split_labels]).squeeze()
+        pre_split_means = np.vstack([initial_gmm.means_[i] for i in pre_split_labels])
+        pre_split_covariances = np.stack([initial_gmm.covariances_[i] for i in pre_split_labels])
 
-            post_split_weights.append(new_gmm.weights_)
-            post_split_means.append(new_gmm.means_)
-            post_split_covariances.append(new_gmm.covariances_)
+        pre_split_gmm = GaussianMixture(n_components=len(pre_split_weights), covariance_type='full')
+        pre_split_gmm.weights_ = pre_split_weights
+        pre_split_gmm.means_ = pre_split_means
+        pre_split_gmm.covariances_ = pre_split_covariances
+        pre_split_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(pre_split_covariances))
+        pre_split_bic = pre_split_gmm.bic(data)
+        print(f'pre-split bic: {round(pre_split_bic, 2)}')
 
-            new_bic = new_gmm.bic(data)
-            post_split_bics.append(new_bic)
-            print(f'splitting {i}th gaussian into {n_gaussians} gaussians with updated bic: {round(new_bic, 2)}')
+        # split
+        post_split_weights = [pre_split_gmm.weights_]
+        post_split_means = [pre_split_gmm.means_]
+        post_split_covariances = [pre_split_gmm.covariances_]
+        post_split_bics = [pre_split_bic, pre_split_bic]
 
-        pre_split_weights = post_split_weights[-2]
-        pre_split_means = post_split_means[-2]
-        pre_split_covariances = post_split_covariances[-2]
-        post_split_bics = [new_bic, new_bic]
+        for i in split_ids:
+            n_gaussians = 1
+            while post_split_bics[-1] <= post_split_bics[-2]:
+                n_gaussians += 1
+                tmp_gmm = GaussianMixture(n_components=n_gaussians)
+                tmp_gmm.fit(data[initial_labels == i])
+
+                weights = np.hstack([pre_split_weights, tmp_gmm.weights_])
+                means = np.vstack([pre_split_means, tmp_gmm.means_])
+                covariances = np.vstack([pre_split_covariances, tmp_gmm.covariances_])
+
+                new_gmm = GaussianMixture(n_components=len(weights), covariance_type='full')
+                new_gmm.weights_ = weights
+                new_gmm.means_ = means
+                new_gmm.covariances_ = covariances
+                new_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(new_gmm.covariances_))
+
+                post_split_weights.append(new_gmm.weights_)
+                post_split_means.append(new_gmm.means_)
+                post_split_covariances.append(new_gmm.covariances_)
+
+                new_bic = new_gmm.bic(data)
+                post_split_bics.append(new_bic)
+                print(f'split gaussian {i} into {n_gaussians} gaussians with updated bic: {round(new_bic, 2)}')
+
+            pre_split_weights = post_split_weights[-2]
+            pre_split_means = post_split_means[-2]
+            pre_split_covariances = post_split_covariances[-2]
+            post_split_bics = [new_bic, new_bic]
+
+        # after split
+        post_split_gmm = GaussianMixture(n_components=len(post_split_weights[-2]), covariance_type='full')
+        post_split_gmm.weights_ = post_split_weights[-2]
+        post_split_gmm.means_ = post_split_means[-2]
+        post_split_gmm.covariances_ = post_split_covariances[-2]
+        post_split_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(post_split_gmm.covariances_))
         
-    # after split
-    post_split_gmm = GaussianMixture(n_components=len(post_split_weights[-2]), covariance_type='full')
-    post_split_gmm.weights_ = post_split_weights[-2]
-    post_split_gmm.means_ = post_split_means[-2]
-    post_split_gmm.covariances_ = post_split_covariances[-2]
-    post_split_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(post_split_gmm.covariances_))
-    
-    return pre_split_gmm, post_split_gmm
+        np.save(gmm_name + '_weights', post_split_gmm.weights_, allow_pickle=False)
+        np.save(gmm_name + '_means', post_split_gmm.means_, allow_pickle=False)
+        np.save(gmm_name + '_covariances', post_split_gmm.covariances_, allow_pickle=False)
+        
+    else:
+        means = np.load(gmm_name + '_means.npy')
+        covar = np.load(gmm_name + '_covariances.npy')
+        post_split_gmm = GaussianMixture(n_components=len(means), covariance_type='full')
+        post_split_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(covar))
+        post_split_gmm.weights_ = np.load(gmm_name + '_weights.npy')
+        post_split_gmm.means_ = means
+        post_split_gmm.covariances_ = covar
+        
+    return post_split_gmm
+
+
+
+
+
