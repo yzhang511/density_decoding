@@ -115,3 +115,106 @@ def plot_gmm_cluster_viz(data, labels, labels_display, n_spikes_display=30_000):
 
     plt.tight_layout()
     plt.show() 
+    
+
+def define_box_properties(plot_name, color_code, label):
+    '''
+    
+    '''
+    for k, v in plot_name.items():
+        plt.setp(plot_name.get(k), color=color_code)
+         
+    plt.plot([], c=color_code, label=label)
+    plt.legend()
+    
+    
+def plot_compare_decoder_boxplots(rootpath, sub_id, behave_type, metric_type, n_folds, add_smooth=False, fig_size=(15,5), font_size=15, save_fig=False):
+    '''
+    to do: optimize this code and reduce code redundancy.
+    '''
+    if add_smooth:
+        smooth_type = '_tpca'
+    else:
+        smooth_type = ''
+        
+    all_decode_results = np.load(f'{rootpath}/{sub_id}/decode_results/all{smooth_type}_decode_results.npy', allow_pickle=True).item()
+    po_decode_results = np.load(f'{rootpath}/{sub_id}/decode_results/po{smooth_type}_decode_results.npy', allow_pickle=True).item()
+    lp_decode_results = np.load(f'{rootpath}/{sub_id}/decode_results/lp{smooth_type}_decode_results.npy', allow_pickle=True).item()
+    dg_decode_results = np.load(f'{rootpath}/{sub_id}/decode_results/dg{smooth_type}_decode_results.npy', allow_pickle=True).item()
+    ca1_decode_results = np.load(f'{rootpath}/{sub_id}/decode_results/ca1{smooth_type}_decode_results.npy', allow_pickle=True).item()
+    ppc_decode_results = np.load(f'{rootpath}/{sub_id}/decode_results/ppc{smooth_type}_decode_results.npy', allow_pickle=True).item()
+
+    if metric_type == 'accuracy':
+        idx = 0
+    elif metric_type == 'auc':
+        idx = 1
+        
+    data_type = 'good units'
+    good_units = [all_decode_results[behave_type][data_type][idx],
+                 po_decode_results[behave_type][data_type][idx],
+                 lp_decode_results[behave_type][data_type][idx],
+                 dg_decode_results[behave_type][data_type][idx],
+                 ca1_decode_results[behave_type][data_type][idx],
+                 ppc_decode_results[behave_type][data_type][idx]]
+    data_type = 'sorted'
+    sorted = [all_decode_results[behave_type][data_type][idx],
+                 po_decode_results[behave_type][data_type][idx],
+                 lp_decode_results[behave_type][data_type][idx],
+                 dg_decode_results[behave_type][data_type][idx],
+                 ca1_decode_results[behave_type][data_type][idx],
+                 ppc_decode_results[behave_type][data_type][idx]]
+    data_type = 'unsorted'
+    unsorted = [all_decode_results[behave_type][data_type][idx],
+                 po_decode_results[behave_type][data_type][idx],
+                 lp_decode_results[behave_type][data_type][idx],
+                 dg_decode_results[behave_type][data_type][idx],
+                 ca1_decode_results[behave_type][data_type][idx],
+                 ppc_decode_results[behave_type][data_type][idx]]
+    data_type = 'clusterless'
+    clusterless = [all_decode_results[behave_type][data_type][idx],
+                 po_decode_results[behave_type][data_type][idx],
+                 lp_decode_results[behave_type][data_type][idx],
+                 dg_decode_results[behave_type][data_type][idx],
+                 ca1_decode_results[behave_type][data_type][idx],
+                 ppc_decode_results[behave_type][data_type][idx]]
+
+    ticks = ['all', 'po', 'lp', 'dg', 'ca1', 'ppc']
+    colors = ['gray', 'coral', 'teal', 'royalblue']
+    plt.rcParams["figure.figsize"] = fig_size
+    plt.rcParams.update({'font.size': font_size})
+    
+    good_units_plot = plt.boxplot(good_units, positions=np.array(np.arange(len(good_units)))*2.0-0.4, widths=0.15, showfliers=False)
+    plt.scatter(x=np.repeat(np.array(np.arange(len(good_units))).reshape(-1,1)*2.0-0.4, n_folds, axis=1), 
+                y=good_units, c=colors[0], s=10)
+
+    sorted_plot = plt.boxplot(sorted, positions=np.array(np.arange(len(sorted)))*2.0-0.2, widths=0.15, showfliers=False)
+    plt.scatter(x=np.repeat(np.array(np.arange(len(sorted))).reshape(-1,1)*2.0-0.2, n_folds, axis=1), 
+                y=sorted, c=colors[1], s=10)
+    
+    unsorted_plot = plt.boxplot(unsorted, positions=np.array(np.arange(len(unsorted)))*2.0, widths=0.15, showfliers=False)
+    plt.scatter(x=np.repeat(np.array(np.arange(len(unsorted))).reshape(-1,1)*2.0, n_folds, axis=1), 
+                y=unsorted, c=colors[2], s=10)
+    
+    clusterless_plot = plt.boxplot(clusterless, positions=np.array(np.arange(len(clusterless)))*2+0.2, widths=0.15, showfliers=False)
+    plt.scatter(x=np.repeat(np.array(np.arange(len(clusterless))).reshape(-1,1)*2+0.2, n_folds, axis=1), 
+                y=clusterless, c=colors[3], s=10)
+        
+    if add_smooth:
+        add_name = ' + tpca'
+    else:
+        add_name = ''
+    define_box_properties(good_units_plot, colors[0], 'good sorted units' + add_name)
+    define_box_properties(sorted_plot, colors[1], 'all sorted units' + add_name)
+    define_box_properties(unsorted_plot, colors[2], 'thresholded' + add_name)
+    define_box_properties(clusterless_plot, colors[3], 'clusterless' + add_name)
+
+    plt.xticks(np.arange(0, len(ticks) * 2, 2), ticks)
+    plt.xlim(-2, len(ticks)*2)
+    plt.ylabel(metric_type);
+    plt.title('');
+    if save_fig:
+        plt.savefig(f'{rootpath}/{sub_id}/plots/compare{smooth_type}_decoders_{behave_type}_{metric_type}.png', dpi=200)
+        plt.show()
+    else:
+        plt.show()
+    
