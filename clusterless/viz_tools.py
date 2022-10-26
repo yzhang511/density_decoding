@@ -49,10 +49,6 @@ def plot_spikes_features(trials, trials_ids):
     plt.colorbar(label="ptp (amp)");
 
 
-def plot_static_behavior_traces():
-    return
-
-
 def confidence_ellipse(x, y, ax, n_std=2.0, facecolor='none', **kwargs):
     '''
     https://matplotlib.org/stable/gallery/statistics/confidence_ellipse.html
@@ -218,3 +214,11 @@ def plot_compare_decoder_boxplots(rootpath, sub_id, behave_type, metric_type, n_
     else:
         plt.show()
     
+    
+
+def plot_static_behavior_traces():
+    return
+
+def plot_compare_obs_pred_static_behavior_traces():
+    return
+

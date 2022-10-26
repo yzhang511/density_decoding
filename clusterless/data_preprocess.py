@@ -188,7 +188,7 @@ def preprocess_static_behaviors(behave_dict):
     enc.fit(transformed_stimuli.reshape(-1,1))
     one_hot_stimuli = enc.transform(transformed_stimuli.reshape(-1,1)).toarray()
 
-    return choices, stimuli, transformed_stimuli, one_hot_stimuli, rewards, priors
+    return choices, stimuli, transformed_stimuli, one_hot_stimuli, enc.categories_, rewards, priors
  
     
 def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, regional=False, n_time_bins=30, samp_freq=30_000):
