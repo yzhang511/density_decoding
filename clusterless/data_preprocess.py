@@ -158,21 +158,27 @@ def load_kilosort_template_feature_mads(rootpath):
     z_mad_scaled = np.load(f'{rootpath}/kilosort_template/z_mad_scaled.npy')
     return temp_amps, x_mad_scaled, z_mad_scaled
     
-def preprocess_static_behaviors(behave_dict):
+def preprocess_static_behaviors(behave_dict, keep_active_trials=True):
     '''
     extract choices, stimuli, rewards and priors.
+    to do: use 'behave_idx_dict' to select behaviors instead of hard-coding.
     '''
-    choices = behave_dict[:,:,:,22:24].sum(2)[0,:,:]
-    print('choices left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), (choices.sum(0)[1]/choices.shape[0])))
     
-    stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
+    if keep_active_trials:
+        choices = behave_dict[:,:,:,23:25].sum(2)[0,:,:]
+        stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
+        rewards = behave_dict[:,:,:,25:27].sum(2)[0,:,:]
+        priors = behave_dict[0,:,0,28:29]
+    else:
+        choices = behave_dict[:,:,:,22:24].sum(2)[0,:,:]
+        stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
+        rewards = behave_dict[:,:,:,24:26].sum(2)[0,:,:]
+        priors = behave_dict[0,:,0,27:28]     
+    print('choices left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), (choices.sum(0)[1]/choices.shape[0])))
     print('stimuli left: %.3f, right: %.3f'%((np.sum(stimuli.argmax(1)==1)/stimuli.shape[0]), \
                                    (np.sum(stimuli.argmax(1)==0)/stimuli.shape[0])))
-    
-    rewards = behave_dict[:,:,:,24:26].sum(2)[0,:,:]
     print('reward wrong: %.3f, correct: %.3f'%((rewards.sum(0)[0]/rewards.shape[0]), (rewards.sum(0)[1]/rewards.shape[0])))
     
-    priors = behave_dict[0,:,0,27:28]
     
     # transform stimulus for plotting
     transformed_stimuli = []

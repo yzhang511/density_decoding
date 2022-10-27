@@ -10,6 +10,7 @@ def plot_drift_map(spikes_indices, spikes_features, n_spikes_display=1000_000, s
     '''
     to do: add kilosort drift map
     to do: pass aesthetic config
+    to do: change facecolor to black and use 'cubehelix' cmap
     '''
     offset = spikes_indices[:,0] / samp_freq
     spikes_times = (spikes_indices[:,0] - offset) / samp_freq
@@ -21,7 +22,7 @@ def plot_drift_map(spikes_indices, spikes_features, n_spikes_display=1000_000, s
     ptp_rescaled[ptp_rescaled>0.6] = 0.6
     ptp_rescaled = (ptp_rescaled - ptp_rescaled.min())/(ptp_rescaled.max() - ptp_rescaled.min())
 
-    vir = plt.cm.get_cmap('viridis')
+    vir = plt.cm.get_cmap('viridis') 
     color_arr = vir(ptp_rescaled)
     color_arr[:, 3] = ptp_rescaled
 
@@ -42,7 +43,7 @@ def plot_spikes_features(trials, trials_ids):
     '''
     spikes_display = np.vstack([trials[i] for i in trials_ids])
     plt.figure(figsize = (4, 8))
-    plt.scatter(spikes_display[:,1], spikes_display[:,2], c=spikes_display[:,3], s=10, alpha=0.5),
+    plt.scatter(spikes_display[:,1], spikes_display[:,2], c=spikes_display[:,3], s=1, alpha=0.1),
     plt.xlabel("x (um)")
     plt.ylabel("z (um)")
     plt.title(f'spikes collected over {len(trials_ids)} trials')
@@ -84,9 +85,9 @@ def plot_gmm_cluster_viz(data, labels, labels_display, n_spikes_display=30_000):
     random.shuffle(colors)
     for i in np.unique(labels_display):
         if i >= 148:
-            c = i // 4  # only 148 colors available for plotting
+            c = int(i) // 4  # only 148 colors available for plotting
         else:
-            c = i.copy()
+            c = int(i.copy())
         if len(data[labels == i, 0]) == 0:
             continue
         confidence_ellipse(data[labels == i, 0], data[labels == i, 1], 
