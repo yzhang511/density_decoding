@@ -175,7 +175,7 @@ def plot_compare_decoder_boxplots(rootpath, sub_id, behave_type, metric_type, n_
                  ppc_decode_results[behave_type][data_type][idx]]
 
     ticks = ['all', 'po', 'lp', 'dg', 'ca1', 'ppc']
-    colors = ['gray', 'coral', 'teal', 'royalblue']
+    colors = ['gray', 'teal', 'royalblue', 'coral']
     plt.rcParams["figure.figsize"] = fig_size
     plt.rcParams.update({'font.size': font_size})
     
@@ -216,9 +216,44 @@ def plot_compare_decoder_boxplots(rootpath, sub_id, behave_type, metric_type, n_
     
     
 
-def plot_static_behavior_traces():
-    return
+def plot_static_behavior_traces(rootpath, sub_id, choices, stimuli, fig_size=(12,3), font_size=15, save_fig=False):
+    '''
+    '''
+    
+    plt.rcParams["figure.figsize"] = fig_size
+    plt.rcParams.update({'font.size': font_size})
+    plt.plot(stimuli, c='gray', label='stimulus', linewidth=2)
+    plt.eventplot(np.where(choices.argmax(1)), colors='red', lineoffsets=1, linewidth=1, linelengths=0.1, label='right')
+    plt.eventplot(np.where(choices.argmax(1)==0), colors='green', lineoffsets=-1, linewidth=1, linelengths=0.1, label='left')
+    plt.axhline(y=0, color='blue', linestyle='--')
+    plt.legend(loc=0, prop={'size': 15});
+    plt.ylabel('stimulus');
+    plt.xlabel('trial number');  # to do: change to real time units
+    plt.title("");
+    plt.tight_layout()
+    if save_fig:
+        plt.savefig(f'{rootpath}/{sub_id}/plots/static_behavior_traces.png', dpi=200)
+        plt.show()
+    else:
+        plt.show()
+    
 
-def plot_compare_obs_pred_static_behavior_traces():
-    return
+def plot_compare_obs_pred_static_behavior_traces(rootpath, sub_id, behave_type, data_type, trial_ids, obs_behaviors, pred_behaviors, fig_size=(12,3), font_size=15, save_fig=False):
+    '''
+    '''
+    
+    plt.rcParams["figure.figsize"] = fig_size
+    plt.rcParams.update({'font.size': font_size})
+    plt.plot(obs_behaviors[np.argsort(trial_ids)], c='gray', linestyle='dashed', label='observed ' + behave_type)
+    plt.plot(pred_behaviors[np.argsort(trial_ids)], c='blue', alpha=.6, label='predicted ' + behave_type)
+    plt.legend(loc=2, prop={'size': 15});
+    plt.ylabel(behave_type);
+    plt.xlabel('trial number');
+    plt.legend(fontsize=12);
+    plt.tight_layout()
+    if save_fig:
+        plt.savefig(f'{rootpath}/{sub_id}/plots/{data_type}_obs_pred_{behave_type}_traces.png', dpi=200)
+        plt.show()
+    else:
+        plt.show()
 

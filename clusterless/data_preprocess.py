@@ -191,6 +191,23 @@ def preprocess_static_behaviors(behave_dict):
     return choices, stimuli, transformed_stimuli, one_hot_stimuli, enc.categories_, rewards, priors
  
     
+def inverse_transform_stimulus(transformed_stimuli, enc_categories):
+    '''
+    '''
+    
+    enc_dict = {}
+    for i in np.arange(0, len(enc_categories[0])):
+        enc_dict.update({i: enc_categories[0][i]})
+    print(enc_dict)
+    
+    original_stimuli = np.zeros(len(transformed_stimuli))
+    for i, s in enumerate(transformed_stimuli):
+        original_stimuli[i] = enc_dict[s]
+    
+    return original_stimuli
+    
+    
+    
 def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, regional=False, n_time_bins=30, samp_freq=30_000):
     '''
     for gmm, unsorted, sorted.
