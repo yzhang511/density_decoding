@@ -51,7 +51,7 @@ def initialize_gaussian_mixtures_with_spike_sorting(rootpath, sub_id, trials, se
     clustered_covs = np.array([np.diag(np.diag(np.cov(clustered_features[k].transpose()))) 
                                    for k in np.unique(init_spikes_labels)])
     
-    gmm_name = f'{rootpath}/pretrained/{sub_id}/sorting_initialized_gmm'
+    gmm_name = f'./pretrained/{sub_id}/sorting_initialized_gmm'
     
     if fit_model:
         trials_ids = np.arange(len(trials))

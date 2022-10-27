@@ -16,7 +16,11 @@ def decode_static(x_train, x_test, y_train, y_test, behave_type, seed=666):
         probs = decoder.predict_proba(x_test)
         preds = probs.argmax(1)
         acc = accuracy_score(y_test.argmax(1), preds)
-        auc = roc_auc_score(y_test, probs)
+        try:
+            auc = roc_auc_score(y_test, probs)
+        except ValueError:
+            auc = np.nan
+            print('only one class present in y_true, auc score is not defined in that case.')
       
     return acc, auc, preds, probs
 
@@ -41,7 +45,7 @@ def cv_decode_static(x, y, behave_type, n_folds=5, seed=666, shuffle=True):
         cv_preds.append(preds)
         cv_probs.append(probs)
         print(f'{behave_type} fold {fold} test accuracy: {acc:.3f} auc: {auc:.3f}')
-    print(f'{behave_type} mean of {fold}-fold cv accuracy: {np.mean(cv_accs):.3f} auc: {np.mean(cv_aucs):.3f}')
-    print(f'{behave_type} sd of {fold}-fold cv accuracy: {np.std(cv_accs):.3f} auc: {np.std(cv_aucs):.3f}')
+    print(f'{behave_type} mean of {fold}-fold cv accuracy: {np.nanmean(cv_accs):.3f} auc: {np.nanmean(cv_aucs):.3f}')
+    print(f'{behave_type} sd of {fold}-fold cv accuracy: {np.nanstd(cv_accs):.3f} auc: {np.nanstd(cv_aucs):.3f}')
         
     return cv_accs, cv_aucs, cv_ids, cv_obs, cv_preds, cv_probs
