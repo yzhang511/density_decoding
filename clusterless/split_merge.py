@@ -29,15 +29,19 @@ def calc_corr_matrix(probs, tol=0.1):
     '''
     to do: speed up this operation; only do lower triangular entries.
     '''
-    
+    pairs = []
     corr_mat = np.zeros((probs.shape[1], probs.shape[1]))
     for i in range(probs.shape[1]):
         for j in range(probs.shape[1]):
-            u = probs[:,i].copy()
-            v = probs[:,j].copy()
-            corr = calc_corr(u, v)
             if i != j:
-                corr_mat[i, j] = corr
+                if set([i,j]) not in pairs:
+                    pairs.append(set([i,j]))
+                    u = probs[:,i].copy()
+                    v = probs[:,j].copy()
+                    corr = calc_corr(u, v)
+                    corr_mat[i, j] = corr
+                    if np.logical_and(i % 50 == 0, j % 50 == 0):
+                        print(f'calculaing corr for pair ({i}, {j}) ...')
             elif i == j:
                 corr_mat[i, j] = 0  # exclude self-correlation
     return corr_mat
@@ -144,11 +148,15 @@ def split_criteria(data, labels, use_ks_template=False):
     return split_ids
 
 
-def split_gaussians(rootpath, sub_id, data, initial_gmm, initial_labels, split_ids, fit_model=False):
+def split_gaussians(rootpath, sub_id, data, initial_gmm, initial_labels, split_ids, init_method, fit_model=False):
     '''
     to do: improve split procedure - fit dirichlet gmm? manual split by svd decomp?
     '''
-    gmm_name = f'{rootpath}/pretrained/{sub_id}/post_split_gmm'
+    
+    if init_method == 'sorting':
+        gmm_name = f'{rootpath}/pretrained/{sub_id}/sorting_initialized_post_split_gmm'
+    else:
+        gmm_name = f'{rootpath}/pretrained/{sub_id}/post_split_gmm'
     
     if fit_model:
         # before split
@@ -237,11 +245,14 @@ def merge_criteria(corr_mat, threshold):
 
 
 
-def merge_gaussians(rootpath, sub_id, data, post_split_gmm, post_split_labels, merge_ids, fit_model=False):
+def merge_gaussians(rootpath, sub_id, data, post_split_gmm, post_split_labels, merge_ids, init_method, fit_model=False):
     '''
     
     '''
-    gmm_name = f'{rootpath}/pretrained/{sub_id}/post_merge_gmm'
+    if init_method == 'sorting':
+        gmm_name = f'{rootpath}/pretrained/{sub_id}/sorting_initialized_post_merge_gmm'
+    else:
+        gmm_name = f'{rootpath}/pretrained/{sub_id}/post_merge_gmm'
     
     if fit_model:
         # before merge
