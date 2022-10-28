@@ -30,12 +30,12 @@ def cv_decode_static(x, y, behave_type, n_folds=5, seed=666, shuffle=True):
     
     '''
     
-    kf = KFold(n_splits=n_folds, random_state=seed, shuffle=shuffle)
+    kf = StratifiedKFold(n_splits=n_folds, random_state=seed, shuffle=shuffle)
     
     fold = 0
     cv_accs = []; cv_aucs = []; cv_ids = []
     cv_obs = []; cv_preds = []; cv_probs = []
-    for train, test in kf.split(x):
+    for train, test in kf.split(x, y.argmax(1)):
         fold += 1
         acc, auc, preds, probs = decode_static(x[train], x[test], y[train], y[test], behave_type, seed)
         cv_ids.append(test)
@@ -45,7 +45,8 @@ def cv_decode_static(x, y, behave_type, n_folds=5, seed=666, shuffle=True):
         cv_preds.append(preds)
         cv_probs.append(probs)
         print(f'{behave_type} fold {fold} test accuracy: {acc:.3f} auc: {auc:.3f}')
-    print(f'{behave_type} mean of {fold}-fold cv accuracy: {np.nanmean(cv_accs):.3f} auc: {np.nanmean(cv_aucs):.3f}')
-    print(f'{behave_type} sd of {fold}-fold cv accuracy: {np.nanstd(cv_accs):.3f} auc: {np.nanstd(cv_aucs):.3f}')
-        
-    return cv_accs, cv_aucs, cv_ids, cv_obs, cv_preds, cv_probs
+    filtered_cv_aucs = list(np.array(cv_aucs)[~np.isnan(cv_aucs)])
+    print(f'{behave_type} mean of {fold}-fold cv accuracy: {np.mean(cv_accs):.3f} auc: {np.mean(filtered_cv_aucs):.3f}')
+    print(f'{behave_type} sd of {fold}-fold cv accuracy: {np.std(cv_accs):.3f} auc: {np.std(filtered_cv_aucs):.3f}')
+    
+    return cv_accs, filtered_cv_aucs, cv_ids, cv_obs, cv_preds, cv_probs

@@ -20,7 +20,7 @@ def load_unsorted_data(rootpath, sub_id, roi='all', keep_active_trials=True, sam
         clusters_channels = np.load(f'{rootpath}/{sub_id}/sorted/clusters_channels.npy', allow_pickle=True)
         channels_rois = np.load(f'{rootpath}/{sub_id}/sorted/channels_rois.npy', allow_pickle=True)
         channels_rois = np.vstack([np.arange(384), channels_rois]).transpose()
-        valid_channels = channels_rois[channels_rois[:,-1] == roi, 0]
+        valid_channels = channels_rois[[roi in x for x in channels_rois[:,-1]], 0]
         valid_channels = np.unique(valid_channels).astype(int)
         print(f'found {len(valid_channels)} channels in roi {roi}')
         
@@ -72,7 +72,7 @@ def load_kilosort_sorted_data(rootpath, sub_id, roi='all', keep_active_trials = 
         clusters_channels = np.load(f'{rootpath}/{sub_id}/sorted/clusters_channels.npy', allow_pickle=True)
         channels_rois = np.load(f'{rootpath}/{sub_id}/sorted/channels_rois.npy', allow_pickle=True)
         channels_rois = np.vstack([np.arange(384), channels_rois]).transpose()
-        valid_channels = channels_rois[channels_rois[:,-1] == roi, 0]
+        valid_channels = channels_rois[[roi in x for x in channels_rois[:,-1]], 0]
         valid_channels = np.unique(valid_channels).astype(int)
         valid_units = []
         for c in valid_channels:
@@ -116,7 +116,7 @@ def load_kilosort_good_ibl_units(rootpath, sub_id, roi='all', keep_active_trials
         clusters_channels = np.load(f'{rootpath}/{sub_id}/sorted/clusters_channels.npy', allow_pickle=True)
         channels_rois = np.load(f'{rootpath}/{sub_id}/sorted/channels_rois.npy', allow_pickle=True)
         channels_rois = np.vstack([np.arange(384), channels_rois]).transpose()
-        valid_channels = channels_rois[channels_rois[:,-1] == roi, 0]
+        valid_channels = channels_rois[[roi in x for x in channels_rois[:,-1]], 0]
         valid_channels = np.unique(valid_channels).astype(int)
         valid_units = []
         for c in valid_channels:

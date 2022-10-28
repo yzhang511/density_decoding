@@ -76,7 +76,7 @@ def confidence_ellipse(x, y, ax, n_std=2.0, facecolor='none', **kwargs):
     ellipse.set_transform(transf + ax.transData)
     return ax.add_patch(ellipse)
 
-def plot_gmm_cluster_viz(data, labels, labels_display, display_all_spikes=False, n_spikes_display=30_000):
+def plot_gmm_cluster_viz(sub_id, data, labels, labels_display, display_all_spikes=False, n_spikes_display=30_000, title=None, save_fig=False):
     '''
     to do: fix bug in num of gaussians to display (repeated labels after split)
     '''
@@ -105,7 +105,7 @@ def plot_gmm_cluster_viz(data, labels, labels_display, display_all_spikes=False,
                             s=1, alpha=0.01, c=colors[c])
             axes[0].set_xlabel('x (um)')
             axes[0].set_ylabel('z (um)')
-            axes[0].set_title('MoG')
+            axes[0].set_title(f'{title}')
             axes[1].set_xlabel('max ptp (amp)')
             axes[1].set_ylabel('z (um)')
             axes[1].set_title(f'n_gaussians = {len(np.unique(labels_display))}')
@@ -115,7 +115,12 @@ def plot_gmm_cluster_viz(data, labels, labels_display, display_all_spikes=False,
         axes[1].spines[ax].set_linewidth(1.5)
 
     plt.tight_layout()
-    plt.show() 
+    
+    if save_fig:
+        plt.savefig(f'data/{sub_id}/plots/{title}_MoG_{len(np.unique(labels_display))}.png', dpi=200)
+        plt.show()
+    else:
+        plt.show()
     
 
 def define_box_properties(plot_name, color_code, label):
