@@ -335,5 +335,29 @@ def compute_time_binned_neural_activity(data, data_type, stimulus_onset_times, r
             np.add.at(spike_count, (neurons, time_bins), 1) 
             neural_data.append(spike_count)
         neural_data = np.array(neural_data)
+        
+    elif data_type=='kilosort unsorted':
+        if regional:
+            n_channels = len(np.unique(data[:,1]))
+            tmp = pd.DataFrame({'time': data[:,0]*samp_freq, 'old_unit': data[:,1].astype(int)})
+            tmp['old_unit'] = tmp['old_unit'].astype('category')
+            tmp['new_unit'] = pd.factorize(tmp.old_unit)[0]
+            spikes_indices = np.array(tmp)[:,[0,2]]
+        else:
+            n_channels = 384 
+            spikes_indices = data
+            spikes_indices[:,0] = spikes_indices[:,0] * samp_freq
+            
+        for i in range(n_trials):
+            mask = np.logical_and(spikes_indices[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,
+                                  spikes_indices[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )
+            trial = spikes_indices[mask,:]
+            trial[:,0] = (trial[:,0] - trial[:,0].min()) / samp_freq
+            channels = trial[:,1].astype(int)
+            time_bins = np.digitize(trial[:,0], binning, right=False)-1
+            spike_count = np.zeros([n_channels, n_time_bins])
+            np.add.at(spike_count, (channels, time_bins), 1) 
+            neural_data.append(spike_count)
+        neural_data = np.array(neural_data)
     
     return neural_data
