@@ -3,7 +3,7 @@ import random
 import matplotlib.pyplot as plt
 from sklearn.mixture import GaussianMixture
 from scipy.interpolate import UnivariateSpline
-from .data_preprocess import load_kilosort_template_feature_mads
+from clusterless.data_preprocess import load_kilosort_template_feature_mads
 
 def calc_mad(arr):
     """ 

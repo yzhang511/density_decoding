@@ -37,8 +37,8 @@ def initialize_gaussian_mixtures_with_spike_sorting(rootpath, sub_id, trials, se
     
     '''
     
-    init_spikes_labels = np.load(f'{rootpath}/{sub_id}/spike_sorting_results/spikes_indices.npy')[:,1]
-    init_spikes_features = np.load(f'{rootpath}/{sub_id}/spike_sorting_results/spikes_features.npy')[:,[0,2,4]]
+    init_spikes_labels = np.load(f'{rootpath}/{sub_id}/hdbscan_results/spikes_indices.npy')[:,1]
+    init_spikes_features = np.load(f'{rootpath}/{sub_id}/hdbscan_results/spikes_features.npy')[:,[0,2,4]]
     
     clustered_features = [init_spikes_features[np.argwhere(init_spikes_labels == k)].squeeze() 
                               for k in np.unique(init_spikes_labels)]

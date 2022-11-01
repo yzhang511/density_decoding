@@ -78,14 +78,13 @@ def confidence_ellipse(x, y, ax, n_std=2.0, facecolor='none', **kwargs):
 
 def plot_gmm_cluster_viz(sub_id, data, labels, labels_display, display_all_spikes=False, n_spikes_display=30_000, title=None, save_fig=False):
     '''
-    to do: fix bug in num of gaussians to display (repeated labels after split)
     '''
     fig, axes = plt.subplots(1, 2, figsize=(8,16)) 
     colors = [k for k,v in pltc.cnames.items()]
     random.shuffle(colors)
     for i in np.unique(labels_display):
         if i >= 148:
-            c = int(i) // 4  # only 148 colors available for plotting
+            c = int(i.copy()) // 4  # only 148 colors available for plotting
         else:
             c = int(i.copy())
         if len(data[labels == i, 0]) > 10:
@@ -117,7 +116,7 @@ def plot_gmm_cluster_viz(sub_id, data, labels, labels_display, display_all_spike
     plt.tight_layout()
     
     if save_fig:
-        plt.savefig(f'data/{sub_id}/plots/{title}_MoG_{len(np.unique(labels_display))}.png', dpi=200)
+        plt.savefig(f'../data/{sub_id}/plots/{title}_MoG_{len(np.unique(labels_display))}.png', dpi=200)
         plt.show()
     else:
         plt.show()
