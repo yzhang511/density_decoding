@@ -57,9 +57,9 @@ def calc_smooth_envelope_feature_mads(temp_amps, mad_xs, mad_zs, use_ks_template
     # interpolate x
     offset = mad_xs.copy()
     if use_ks_template:   
-        offset[:15] = offset[:15]+4.
-        offset[15:20] = offset[15:20]+6.
-        offset[20:] = offset[20:]+3.
+        offset[:15] = offset[:15]+3.
+        offset[15:20] = offset[15:20]+3.
+        offset[20:] = offset[20:]+4.
     else:
         offset[:15] = offset[:15]+10.
         offset[15:20] = offset[15:20]+6.
@@ -73,8 +73,9 @@ def calc_smooth_envelope_feature_mads(temp_amps, mad_xs, mad_zs, use_ks_template
     # interpolate z
     offset = mad_zs.copy()
     if use_ks_template: 
-        offset[:15] = offset[:15]+8.
-        offset[15:] = offset[15:]+4.
+        offset[:15] = offset[:15]+3
+        offset[15:20] = offset[15:20]+.5
+        offset[20:] = offset[20:]+4.
         zs = np.linspace(temp_amps.min(), temp_amps.max(), 4)
     else:
         offset[:15] = offset[:15]+15.
@@ -108,7 +109,7 @@ def split_criteria(data, labels, use_ks_template=False):
     mad_zs = np.array(mad_zs)
     
     if use_ks_template:
-        binned_ptps, binned_xs, binned_zs = load_kilosort_template_feature_mads('data')
+        binned_ptps, binned_xs, binned_zs = load_kilosort_template_feature_mads('../data')
         xs, zs, envelope_xs, envelope_zs = \
         calc_smooth_envelope_feature_mads(binned_ptps, binned_xs, binned_zs, use_ks_template=use_ks_template)
         closest_bin_ids = [np.argmin(np.abs(binned_ptps - ptp)) for ptp in avg_ptps]    
@@ -145,7 +146,9 @@ def split_criteria(data, labels, use_ks_template=False):
                          mad_xs[i] > envelope_zs[closest_bin_ids[i]]):
             split_ids.append(i)
             
-    return split_ids
+    residual_labels = list(set(np.unique(initial_labels)).difference(set(split_ids)))
+            
+    return split_ids, residual_labels
 
 
 def split_gaussians(rootpath, sub_id, data, initial_gmm, initial_labels, split_ids, init_method, fit_model=False):
