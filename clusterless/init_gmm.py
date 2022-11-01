@@ -15,7 +15,9 @@ def initial_gaussian_mixtures(rootpath, sub_id, trials, n_gaussians=300, seed=66
         random.shuffle(trials_ids)
         shuffled_unsorted = np.vstack([trials[i] for i in trials_ids])[:,1:]
     
-        gmm = GaussianMixture(n_components=n_gaussians, init_params='k-means++')
+        gmm = GaussianMixture(n_components=n_gaussians, covariance_type='full',
+                             init_params='kmeans', random_state=seed, warm_start=True, 
+                             verbose=1, verbose_interval=10)
         gmm.fit(shuffled_unsorted)
         np.save(gmm_name + '_weights', gmm.weights_, allow_pickle=False)
         np.save(gmm_name + '_means', gmm.means_, allow_pickle=False)

@@ -146,7 +146,7 @@ def split_criteria(data, labels, use_ks_template=False):
                          mad_xs[i] > envelope_zs[closest_bin_ids[i]]):
             split_ids.append(i)
             
-    residual_labels = list(set(np.unique(initial_labels)).difference(set(split_ids)))
+    residual_labels = list(set(np.unique(labels)).difference(set(split_ids)))
             
     return split_ids, residual_labels
 
