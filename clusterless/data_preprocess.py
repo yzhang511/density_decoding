@@ -172,10 +172,10 @@ def load_kilosort_localizations_data(rootpath, sub_id, roi='all', keep_active_tr
     to do: load aligned spike indices not original
     '''
     # load aligned spike indices not original
-    spikes_indices = np.load(f'{rootpath}/{sub_id}/sorted/localization_results/aligned_spike_indices.npy')   
-    spikes_indices[:,0] = spikes_indices[:,0] * samp_freq
-    localization_features = np.load(f'{rootpath}/{sub_id}/sorted/localization_results/localizations.npy')
-    maxptp = np.load(f'{rootpath}/{sub_id}/sorted/localization_results/maxptp.npy')
+    spikes_indices = np.load(f'{rootpath}/{sub_id}/sorted/localization_results/aligned_kilosort_spike_train.npy')   
+    localization_features = np.load(f'{rootpath}/{sub_id}/sorted/localization_results/aligned_kilosort_localizations.npy')
+    maxptp = np.load(f'{rootpath}/{sub_id}/sorted/localization_results/aligned_kilosort_maxptp.npy')
+    clusters_channels = np.load(f'{rootpath}/{sub_id}/sorted/clusters_channels.npy', allow_pickle=True)
     np1_channel_map = np.load(f'{rootpath}/{sub_id}/misc/np1_channel_map.npy')
     stimulus_onset_times = np.load(f'{rootpath}/{sub_id}/misc/stimulus_onset_times.npy') # unit: seconds
     
@@ -183,9 +183,12 @@ def load_kilosort_localizations_data(rootpath, sub_id, roi='all', keep_active_tr
         active_trials_ids = np.load(f'{rootpath}/{sub_id}/behaviors/active_trials_ids.npy')
         stimulus_onset_times = stimulus_onset_times[active_trials_ids]
         
-    # remove bad small spikes that get localized on the boundaries    
-    unsorted = np.concatenate([spikes_indices, localization_features[:,[0,3]], maxptp.reshape(-1,1)], axis=1)
-    mask = np.logical_and(unsorted[:,1] > -85, unsorted[:,1] < 158)
+    spikes_channels = np.array([clusters_channels[i] for i in spikes_indices[:,1]]).reshape(-1,1)
+    unsorted = np.concatenate([spikes_indices, spikes_channels, 
+                               localization_features[:,[0,3]], maxptp.reshape(-1,1)], axis=1)
+    
+    # remove bad small spikes that get localized on the boundaries  
+    mask = np.logical_and(unsorted[:,3] > -85, unsorted[:,3] < 158)
     unsorted = unsorted[mask]
         
     if roi != 'all':
@@ -199,21 +202,20 @@ def load_kilosort_localizations_data(rootpath, sub_id, roi='all', keep_active_tr
         # add z_reg later 
         regional = []
         for i in valid_channels:
-            regional.append(unsorted[unsorted[:,1] == i])
+            regional.append(unsorted[unsorted[:,2] == i])
         regional = np.vstack(regional)
         trials = []
         for i in range(stimulus_onset_times.shape[0]):
             mask = np.logical_and(regional[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,   
                              regional[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq ) 
             trial = regional[mask,:]
-            trials.append(trial[:,[0,2,3,4]]) 
+            trials.append(trial[:,[0,3,4,5]]) 
         return trials
     else:
-        unsorted = unsorted[:,[0,2,3,4]]
         trials = []
         for i in range(stimulus_onset_times.shape[0]):
             mask = np.logical_and(unsorted[:,0] >= stimulus_onset_times[i]*samp_freq-samp_freq*0.5,   
-                                 unsorted[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )        # 1.5 secs / trial
+                                 unsorted[:,0] <= stimulus_onset_times[i]*samp_freq+samp_freq )    # 1.5 secs / trial
             trial = unsorted[mask,:]
             trials.append(trial)
         return unsorted, trials
