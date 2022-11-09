@@ -140,14 +140,14 @@ def plot_gmm_cluster_bounds(sub_id, data, labels, labels_display, display_all_sp
                                axes[1], alpha=1., edgecolor=colors[c], linewidth=1.,  zorder=0)
             if display_all_spikes:
                 axes[0].scatter(data[labels == i][:,0], data[labels == i][:,1], 
-                            s=.5, alpha=0.02, c=data[labels == i][:n_spikes_display,2])
+                            s=.5, alpha=0.05, c=data[labels == i][:n_spikes_display,2])
                 axes[1].scatter(data[labels == i][:,2], data[labels == i][:,1], 
-                            s=.5, alpha=0.02, c=data[labels == i][:n_spikes_display,2])
+                            s=.5, alpha=0.05, c=data[labels == i][:n_spikes_display,2])
             else:
                 axes[0].scatter(data[labels == i][:n_spikes_display,0], data[labels == i][:n_spikes_display,1], 
-                                s=.5, alpha=0.02, c=data[labels == i][:n_spikes_display,2])
+                                s=.5, alpha=0.05, c=data[labels == i][:n_spikes_display,2])
                 axes[1].scatter(data[labels == i][:n_spikes_display,2], data[labels == i][:n_spikes_display,1], 
-                                s=.5, alpha=0.02, c=data[labels == i][:n_spikes_display,2])
+                                s=.5, alpha=0.05, c=data[labels == i][:n_spikes_display,2])
             axes[0].set_xlim(-100, 175)
             axes[0].set_ylim(-50, 4000)
             axes[0].set_xlabel('x (um)')
