@@ -3,3 +3,6 @@ pandas
 matplotlib
 scikit-learn
 unidip
+ONE-api
+ibllib
+

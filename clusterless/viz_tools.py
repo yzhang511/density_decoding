@@ -76,100 +76,77 @@ def confidence_ellipse(x, y, ax, n_std=2.0, facecolor='none', **kwargs):
     ellipse.set_transform(transf + ax.transData)
     return ax.add_patch(ellipse)
 
-def plot_gmm_cluster_viz(sub_id, data, labels, labels_display, display_all_spikes=False, n_spikes_display=30_000, title=None, save_fig=False):
-    '''
-    '''
-    fig, axes = plt.subplots(1, 2, figsize=(8,16)) 
-    colors = [k for k,v in pltc.cnames.items()]
-    random.shuffle(colors)
-    for i in np.unique(labels_display):
-        if i >= 148:
-            c = int(i.copy()) // 4  # only 148 colors available for plotting
-        else:
-            c = int(i.copy())
-        if len(data[labels == i, 0]) > 10:
-            confidence_ellipse(data[labels == i, 0], data[labels == i, 1], 
-                               axes[0], alpha=0.07, facecolor=colors[c], edgecolor=colors[c], zorder=0)
-            confidence_ellipse(data[labels == i, 2], data[labels == i, 1], 
-                               axes[1], alpha=0.07, facecolor=colors[c], edgecolor=colors[c], zorder=0)
-            if display_all_spikes:
-                axes[0].scatter(data[labels == i][:,0], data[labels == i][:,1], 
-                            s=1, alpha=0.01, c=colors[c])
-                axes[1].scatter(data[labels == i][:,2], data[labels == i][:,1], 
-                            s=1, alpha=0.01, c=colors[c])
-            else:
-                axes[0].scatter(data[labels == i][:n_spikes_display,0], data[labels == i][:n_spikes_display,1], 
-                                s=1, alpha=0.01, c=colors[c])
-                axes[1].scatter(data[labels == i][:n_spikes_display,2], data[labels == i][:n_spikes_display,1], 
-                            s=1, alpha=0.01, c=colors[c])
-            axes[0].set_xlabel('x (um)')
-            axes[0].set_ylabel('z (um)')
-            axes[0].set_title(f'{title}')
-            axes[1].set_xlabel('max ptp (amp)')
-            axes[1].set_ylabel('z (um)')
-            axes[1].set_title(f'n_gaussians = {len(np.unique(labels_display))}')
-
-    for ax in ['top','bottom','left','right']:
-        axes[0].spines[ax].set_linewidth(1.5)
-        axes[1].spines[ax].set_linewidth(1.5)
-
-    plt.tight_layout()
-    
-    if save_fig:
-        plt.savefig(f'../data/{sub_id}/plots/{title}_MoG_{len(np.unique(labels_display))}.png', dpi=200)
-        plt.show()
-    else:
-        plt.show()
-        
-
-def plot_gmm_cluster_bounds(sub_id, data, labels, labels_display, display_all_spikes=False, n_spikes_display=30_000, figure_size=(8,16), title=None, save_fig=False):
+def plot_MoG_bounds(
+    data, 
+    labels, 
+    labels_display, 
+    np1_channel_map,
+    channels=[], 
+    local=False,
+    plot_MoG=False,
+    n_spikes_display=5_000, 
+    figure_size=(8,16), 
+    title='', 
+):
     '''
     '''
     fig, axes = plt.subplots(1, 2, figsize=figure_size) 
     colors = [k for k,v in pltc.cnames.items()]
     random.shuffle(colors)
-    for i in np.unique(labels_display):
-        if i >= 148:
-            c = int(i.copy()) // 10  # only 148 colors available for plotting
+    for idx in labels_display:
+        c = int(idx)
+        if idx >= len(colors):
+            c = c // 6  # only 148 colors available for plotting
+            
+        sub_data = data[labels == idx]
+        x, z, maxptp = sub_data.T
+        
+        if len(sub_data) <= 2:
+            continue
+            
+        if plot_MoG:
+            confidence_ellipse(x, z, axes[0], alpha=1., edgecolor=colors[c], linewidth=1., zorder=0)
+            confidence_ellipse(maxptp, z, axes[1], alpha=1., edgecolor=colors[c], linewidth=1., zorder=0)
+    
+        if local:
+            axes[0].scatter(x, z, s=.5, alpha=0.2, c=maxptp)
+            axes[1].scatter(maxptp, z, s=.5, alpha=0.2, c=maxptp)
         else:
-            c = int(i.copy())
-        if len(data[labels == i, 0]) > 10:
-            confidence_ellipse(data[labels == i, 0], data[labels == i, 1], 
-                               axes[0], alpha=1., edgecolor=colors[c], linewidth=1., zorder=0)
-            confidence_ellipse(data[labels == i, 2], data[labels == i, 1], 
-                               axes[1], alpha=1., edgecolor=colors[c], linewidth=1.,  zorder=0)
-            if display_all_spikes:
-                axes[0].scatter(data[labels == i][:,0], data[labels == i][:,1], 
-                            s=.5, alpha=0.05, c=data[labels == i][:n_spikes_display,2])
-                axes[1].scatter(data[labels == i][:,2], data[labels == i][:,1], 
-                            s=.5, alpha=0.05, c=data[labels == i][:n_spikes_display,2])
-            else:
-                axes[0].scatter(data[labels == i][:n_spikes_display,0], data[labels == i][:n_spikes_display,1], 
-                                s=.5, alpha=0.05, c=data[labels == i][:n_spikes_display,2])
-                axes[1].scatter(data[labels == i][:n_spikes_display,2], data[labels == i][:n_spikes_display,1], 
-                                s=.5, alpha=0.05, c=data[labels == i][:n_spikes_display,2])
+            axes[0].scatter(x[:n_spikes_display], z[:n_spikes_display], 
+                            s=.5, alpha=0.05, c=maxptp[:n_spikes_display])
+            axes[1].scatter(maxptp[:n_spikes_display], z[:n_spikes_display], 
+                            s=.5, alpha=0.05, c=maxptp[:n_spikes_display])
+            
+        if local:
+            axes[0].set_xlim(x.min()-25, x.max()+25)
+            axes[0].set_ylim(z.min()-25, z.max()+25)
+            axes[1].set_xlim(0, maxptp.max()+25)
+            axes[1].set_ylim(z.min()-25, z.max()+25)
+        else:    
             axes[0].set_xlim(-100, 175)
-            axes[0].set_ylim(-50, 4000)
-            axes[0].set_xlabel('x (um)')
-            axes[0].set_ylabel('z (um)')
-            axes[0].set_title(f'{title}')
+            axes[0].set_ylim(-80, 4000)
             axes[1].set_xlim(0, 60)
-            axes[1].set_ylim(-50, 4000)
-            axes[1].set_xlabel('max ptp (amp)')
-            axes[1].set_ylabel('z (um)')
-            axes[1].set_title(f'n_gaussians = {len(np.unique(labels_display))}')
+            axes[1].set_ylim(-80, 4000)
+        
+    if len(channels) > 0: 
+        for channel in channels:
+            axes[0].plot(np1_channel_map[int(channel), 0], 
+                         np1_channel_map[int(channel), 1], 
+                         markersize=3, c='orange', marker="s")
+                
+    axes[0].set_xlabel('x (um)')
+    axes[0].set_ylabel('z (um)')
+    axes[0].set_title(f'{title}')
+    axes[1].set_xlabel('max ptp (amp)')
+    axes[1].set_ylabel('z (um)')
+    axes[1].set_title(f'n_units = {len(np.unique(labels_display))}')
 
     for ax in ['top','bottom','left','right']:
-        axes[0].spines[ax].set_linewidth(1.5)
-        axes[1].spines[ax].set_linewidth(1.5)
+        axes[0].spines[ax].set_linewidth(1)
+        axes[1].spines[ax].set_linewidth(1)
 
     plt.tight_layout()
-    
-    if save_fig:
-        plt.savefig(f'../data/{sub_id}/plots/{title}_MoG_{len(np.unique(labels_display))}.png', dpi=200)
-        plt.show()
-    else:
-        plt.show()
+    plt.show()
         
         
 def plot_gaussian_mixtures(sub_id, data, labels, labels_display, display_all_spikes=False, n_spikes_display=30_000, figure_size=(8,16), title=None, save_fig=False):

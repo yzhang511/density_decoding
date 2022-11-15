@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, roc_auc_score 
 from sklearn.model_selection import KFold, StratifiedKFold
 
@@ -12,7 +13,9 @@ def decode_static(x_train, x_test, y_train, y_test, behave_type, seed=666):
     if np.logical_or(behave_type == 'choice', behave_type == 'stimulus'):
         x_train = x_train.reshape(-1, x_train.shape[1]*x_train.shape[-1])
         x_test = x_test.reshape(-1, x_test.shape[1]*x_test.shape[-1])
-        decoder = SVC(random_state=seed, max_iter=1e4, tol = 0.01, kernel='rbf', probability=True).fit(x_train, y_train.argmax(1))
+        # decoder = SVC(random_state=seed, max_iter=1e4, tol = 0.01, 
+        #               kernel='rbf', probability=True).fit(x_train, y_train.argmax(1))
+        decoder = LogisticRegression(random_state=seed, max_iter=1e4, tol = 0.01).fit(x_train, y_train.argmax(1))
         probs = decoder.predict_proba(x_test)
         preds = probs.argmax(1)
         acc = accuracy_score(y_test.argmax(1), preds)
