@@ -45,7 +45,7 @@ def load_neural_data(
             np.load(f'{data_path}/aligned_maxptp.npy')
         x, _, _, z, _ = localization_results.T
     else:
-        data_path = neural_data_path + '/subtraction_results_threshold_4'
+        data_path = neural_data_path + '/subtraction_results_threshold_5'
         spike_indices = \
             np.load(f'{data_path}/spike_index.npy') 
         localization_results = \
@@ -71,39 +71,62 @@ def load_neural_data(
         stimulus_onset_times = stimulus_onset_times[active_trials_ids]
         
     n_trials = stimulus_onset_times.shape[0]
-    print(f'1st trial stim on time: {stimulus_onset_times[0]}, \
-                last trial stim on time {stimulus_onset_times[-1]}') 
+    print(f'1st trial stim on time: {stimulus_onset_times[0]:.2f}, last trial stim on time {stimulus_onset_times[-1]:.2f}') 
     
     spike_times, spike_channels = spike_indices.T
     sl = SpikeSortingLoader(pid=pid, one=one, atlas=ba)
     spike_times = sl.samples2times(spike_times)
     
-    if roi == 'all':       
-        if kilosort:
-            _, spike_clusters = spike_train.T
-            sorted = np.c_[spike_times, spike_clusters]
-            sorted_trials = []
-            for i in range(n_trials):
-                mask = np.logical_and( sorted[:,0] >= stimulus_onset_times[i]-0.5,   
-                                     sorted[:,0] <= stimulus_onset_times[i]+1 )  
-                trial = sorted[mask,:]
-                sorted_trials.append(trial)
+    if kilosort:
+        _, spike_clusters = spike_train.T
+        sorted = np.c_[spike_times, spike_clusters]
             
-        unsorted = np.c_[spike_times, spike_channels, x, z, maxptp]
-        unsorted_trials = []
-        for i in range(n_trials):
-            mask = np.logical_and( unsorted[:,0] >= stimulus_onset_times[i]-0.5,   
-                                 unsorted[:,0] <= stimulus_onset_times[i]+1 )  
-            trial = unsorted[mask,:]
-            unsorted_trials.append(trial)
-        if kilosort:
-            return sorted_trials, unsorted_trials, stimulus_onset_times, np1_channel_map
-        else:
-            return unsorted_trials, stimulus_onset_times, np1_channel_map
+    unsorted = np.c_[spike_times, spike_channels, x, z, maxptp]       
 
+    if roi != 'all':
+        spikes, clusters, channels = sl.load_spike_sorting()
+        clusters = sl.merge_clusters(spikes, clusters, channels)
+        clusters_channels = clusters['channels']
+        clusters_rois = clusters['acronym']
+        channels_rois = channels['acronym']
+        clusters_rois = np.c_[np.arange(clusters_rois.shape[0]), clusters_rois]
+        channels_rois = np.c_[np.arange(channels_rois.shape[0]), channels_rois]
+        valid_clusters = clusters_rois[[roi in x.lower() for x in clusters_rois[:,-1]], 0]
+        valid_clusters = np.unique(valid_clusters).astype(int)
+        valid_channels = channels_rois[[roi in x.lower() for x in channels_rois[:,-1]], 0]
+        valid_channels = np.unique(valid_channels).astype(int)
+        print(f'found {len(valid_clusters)} neurons in region {roi} ...')
+        print(f'found {len(valid_channels)} channels in region {roi} ...')
+        
+        if kilosort:
+            sorted_regional = []
+            for cluster in valid_clusters:
+                sorted_regional.append(sorted[sorted[:,1] == cluster])
+            sorted = np.vstack(sorted_regional)
+            
+        unsorted_regional = []
+        for i in valid_channels:
+            unsorted_regional.append(unsorted[unsorted[:,1] == i])
+        unsorted = np.vstack(unsorted_regional)
+        
+    unsorted_trials = []
+    for i in range(n_trials):
+        mask = np.logical_and( unsorted[:,0] >= stimulus_onset_times[i]-0.5,   
+                             unsorted[:,0] <= stimulus_onset_times[i]+1 )  
+        trial = unsorted[mask,:]
+        unsorted_trials.append(trial)
+        
+    if kilosort:
+        sorted_trials = []
+        for i in range(n_trials):
+            mask = np.logical_and( sorted[:,0] >= stimulus_onset_times[i]-0.5,   
+                                 sorted[:,0] <= stimulus_onset_times[i]+1 )  
+            trial = sorted[mask,:]
+            sorted_trials.append(trial)
+        return sorted_trials, unsorted_trials, stimulus_onset_times, np1_channel_map
     else:
-        # to do: load regional data
-        return
+        return unsorted_trials, stimulus_onset_times, np1_channel_map
+        
     
 
 def compute_neural_activity(
@@ -144,17 +167,17 @@ def compute_neural_activity(
         neural_data = np.array(neural_data).transpose(0,2,1)
     
     else:
-        if data_type=='thresholded':
-            # to do: add regional 
-            n_units = 384
-            spike_times, spike_channels = data
-            spike_train = np.c_[spike_times, spike_channels]
-        
-        elif data_type=='sorted':
-            # to do: add regional
-            spike_times, spike_clusters = data
-            n_units = spike_clusters.max().astype(int)+1
-            spike_train = np.c_[spike_times, spike_clusters]  
+        spike_times, spike_units = data
+        spike_train = np.c_[spike_times, spike_units]
+            
+        if regional:
+            n_units = len(np.unique(spike_units))
+            tmp = pd.DataFrame({'time': spike_times, 'old_unit': spike_units.astype(int)})
+            tmp['old_unit'] = tmp['old_unit'].astype("category")
+            tmp['new_unit'] = pd.factorize(tmp.old_unit)[0]
+            spike_train = np.array(tmp[['time','new_unit']])
+        else:
+            n_units = spike_units.max().astype(int)+1
 
         for i in range(n_trials):
             mask = np.logical_and(spike_train[:,0] >= stimulus_onset_times[i]-0.5,
