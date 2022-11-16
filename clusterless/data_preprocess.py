@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
@@ -26,6 +27,7 @@ def load_neural_data(
     one = ONE(base_url='https://openalyx.internationalbrainlab.org', password=pw, silent=True)
     ba = AllenAtlas()
     eid, probe = one.pid2eid(pid)
+    sl = SpikeSortingLoader(pid=pid, one=one, atlas=ba)
     print(f'pid: {pid}')
     print(f'eid: {eid}')
     
@@ -35,22 +37,33 @@ def load_neural_data(
     
     if kilosort:
         data_path = neural_data_path + '/kilosort_localizations' 
-        spike_train = \
-            np.load(f'{data_path}/aligned_spike_train.npy')
-        spike_indices = \
-            np.load(f'{data_path}/aligned_spike_index.npy') 
-        localization_results = \
-            np.load(f'{data_path}/aligned_localizations.npy')
-        maxptp = \
-            np.load(f'{data_path}/aligned_maxptp.npy')
-        x, _, _, z, _ = localization_results.T
+        if os.path.exists(data_path):
+            spike_train = \
+                np.load(f'{data_path}/aligned_spike_train.npy')
+            spike_index = \
+                np.load(f'{data_path}/aligned_spike_index.npy') 
+            localization_results = \
+                np.load(f'{data_path}/aligned_localizations.npy')
+            maxptp = \
+                np.load(f'{data_path}/aligned_maxptp.npy')             
+            x, _, _, z, _ = localization_results.T
+            localization = True
+        else:
+            spikes, clusters, channels = sl.load_spike_sorting()
+            clusters = sl.merge_clusters(spikes, clusters, channels)
+            spike_times = sl.samples2times(spikes.times, direction='reverse')
+            spike_channels = [clusters.channels[i] for i in spikes.clusters]
+            spike_index = np.c_[spike_times, spike_channels]
+            spike_train = np.c_[spike_times, spikes.clusters]   
+            localization = False
     else:
         data_path = neural_data_path + '/subtraction_results_threshold_5'
-        spike_indices = \
+        spike_index = \
             np.load(f'{data_path}/spike_index.npy') 
         localization_results = \
             np.load(f'{data_path}/localization_results.npy')
         x, z, maxptp = localization_results.T
+        localization = True
         
     if triage:
         triage_results = \
@@ -62,9 +75,10 @@ def load_neural_data(
         if kilosort:
             spike_train = spike_train[triage_low_ptp_filter]
             spike_train = spike_train[triage_idx_keep]
-        spike_indices = spike_indices[triage_low_ptp_filter]
-        spike_indices = spike_indices[triage_idx_keep]
+        spike_index = spike_index[triage_low_ptp_filter]
+        spike_index = spike_index[triage_idx_keep]
         x, z, maxptp = triage_results.T
+        localization = True
         
     if keep_active_trials:
         active_trials_ids = np.load(f'{behavior_data_path}/{eid}_trials.npy')
@@ -73,15 +87,15 @@ def load_neural_data(
     n_trials = stimulus_onset_times.shape[0]
     print(f'1st trial stim on time: {stimulus_onset_times[0]:.2f}, last trial stim on time {stimulus_onset_times[-1]:.2f}') 
     
-    spike_times, spike_channels = spike_indices.T
-    sl = SpikeSortingLoader(pid=pid, one=one, atlas=ba)
+    spike_times, spike_channels = spike_index.T
     spike_times = sl.samples2times(spike_times)
     
     if kilosort:
         _, spike_clusters = spike_train.T
         sorted = np.c_[spike_times, spike_clusters]
-            
-    unsorted = np.c_[spike_times, spike_channels, x, z, maxptp]       
+        
+    if localization:        
+        unsorted = np.c_[spike_times, spike_channels, x, z, maxptp]       
 
     if roi != 'all':
         spikes, clusters, channels = sl.load_spike_sorting()
@@ -103,19 +117,21 @@ def load_neural_data(
             for cluster in valid_clusters:
                 sorted_regional.append(sorted[sorted[:,1] == cluster])
             sorted = np.vstack(sorted_regional)
+        
+        if localization:
+            unsorted_regional = []
+            for i in valid_channels:
+                unsorted_regional.append(unsorted[unsorted[:,1] == i])
+            unsorted = np.vstack(unsorted_regional)
             
-        unsorted_regional = []
-        for i in valid_channels:
-            unsorted_regional.append(unsorted[unsorted[:,1] == i])
-        unsorted = np.vstack(unsorted_regional)
-        
     unsorted_trials = []
-    for i in range(n_trials):
-        mask = np.logical_and( unsorted[:,0] >= stimulus_onset_times[i]-0.5,   
-                             unsorted[:,0] <= stimulus_onset_times[i]+1 )  
-        trial = unsorted[mask,:]
-        unsorted_trials.append(trial)
-        
+    if localization:
+        for i in range(n_trials):
+            mask = np.logical_and( unsorted[:,0] >= stimulus_onset_times[i]-0.5,   
+                                 unsorted[:,0] <= stimulus_onset_times[i]+1 )  
+            trial = unsorted[mask,:]
+            unsorted_trials.append(trial)
+            
     if kilosort:
         sorted_trials = []
         for i in range(n_trials):
@@ -205,22 +221,16 @@ def load_behaviors_data(path, pid):
     return behave_dict
 
     
-def preprocess_static_behaviors(behave_dict, keep_active_trials=True):
+def preprocess_static_behaviors(behave_dict):
     '''
     extract choices, stimuli, rewards and priors.
     to do: use 'behave_idx_dict' to select behaviors instead of hard-coding.
     '''
     
-    if keep_active_trials:
-        choices = behave_dict[:,:,:,23:25].sum(2)[0,:,:]
-        stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
-        rewards = behave_dict[:,:,:,25:27].sum(2)[0,:,:]
-        priors = behave_dict[0,:,0,28:29]
-    else:
-        choices = behave_dict[:,:,:,22:24].sum(2)[0,:,:]
-        stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
-        rewards = behave_dict[:,:,:,24:26].sum(2)[0,:,:]
-        priors = behave_dict[0,:,0,27:28]     
+    choices = behave_dict[:,:,:,23:25].sum(2)[0,:,:]
+    stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
+    rewards = behave_dict[:,:,:,25:27].sum(2)[0,:,:]
+    priors = behave_dict[0,:,0,28:29]
         
     print('choices left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), 
                                              (choices.sum(0)[1]/choices.shape[0])))
@@ -262,3 +272,16 @@ def inverse_transform_stimulus(transformed_stimuli, enc_categories):
     return original_stimuli
     
     
+def preprocess_dynamic_behaviors(behave_dict):
+    '''
+    to do: use 'behave_idx_dict' to select behaviors instead of hard-coding.
+    '''
+    
+    motion_energy = behave_dict[0,:,:,18]
+    wheel_velocity = behave_dict[0,:,:,27]
+    wheel_speed = np.abs(wheel_velocity)
+    paw_speed = behave_dict[0,:,:,15]
+    nose_speed = behave_dict[0,:,:,16]
+    pupil_diameter = behave_dict[0,:,:,17]
+    
+    return motion_energy, wheel_velocity, wheel_speed, paw_speed, nose_speed, pupil_diameter

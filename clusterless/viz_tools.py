@@ -212,6 +212,122 @@ def plot_gaussian_mixtures(
         plt.savefig(f'{fig_path}/{title}.png', dpi=200)
     else:
         plt.show()
+        
+        
+def plot_compare_decoder_barplots(
+    data_path,
+    behave_type, 
+    metric_type, 
+    rois, 
+    n_folds, 
+    add_smooth=False, 
+    figure_size=(15,5), 
+    font_size=15, 
+    title='',
+    save_fig=False,
+    fig_path=None,
+):
+    '''
+    to do: optimize this code and reduce code redundancy.
+    '''
+    if add_smooth:
+        smooth_type = '_tpca'
+    else:
+        smooth_type = ''
+        
+    all_decode_results = np.load(
+        f'{data_path}/all{smooth_type}_decode_results.npy', allow_pickle=True).item()
+    
+    regional_decode_results = {
+        rois[0]: np.load(
+            f'{data_path}/{rois[0]}{smooth_type}_decode_results.npy', allow_pickle=True).item(),
+        rois[1]: np.load(
+            f'{data_path}/{rois[1]}{smooth_type}_decode_results.npy', allow_pickle=True).item(),     
+        rois[2]: np.load(
+            f'{data_path}/{rois[2]}{smooth_type}_decode_results.npy', allow_pickle=True).item(),
+        rois[3]: np.load(
+            f'{data_path}/{rois[3]}{smooth_type}_decode_results.npy', allow_pickle=True).item(),
+        rois[4]: np.load(
+            f'{data_path}/{rois[4]}{smooth_type}_decode_results.npy', allow_pickle=True).item()
+    }
+
+    if metric_type == 'accuracy':
+        idx = 0
+    elif metric_type == 'auc':
+        idx = 1
+        
+    data_type = 'sorted'
+    sorted = np.array([
+        all_decode_results[behave_type][data_type][idx],
+        regional_decode_results[rois[0]][behave_type][data_type][idx],
+        regional_decode_results[rois[1]][behave_type][data_type][idx],
+        regional_decode_results[rois[2]][behave_type][data_type][idx],
+        regional_decode_results[rois[3]][behave_type][data_type][idx],
+        regional_decode_results[rois[4]][behave_type][data_type][idx]
+    ])
+    
+    data_type = 'thresholded'
+    thresholded = np.array([
+        all_decode_results[behave_type][data_type][idx],
+        regional_decode_results[rois[0]][behave_type][data_type][idx],
+        regional_decode_results[rois[1]][behave_type][data_type][idx],
+        regional_decode_results[rois[2]][behave_type][data_type][idx],
+        regional_decode_results[rois[3]][behave_type][data_type][idx],
+        regional_decode_results[rois[4]][behave_type][data_type][idx]
+    ])
+    
+    data_type = 'clusterless'
+    clusterless = np.array([
+        all_decode_results[behave_type][data_type][idx],
+        regional_decode_results[rois[0]][behave_type][data_type][idx],
+        regional_decode_results[rois[1]][behave_type][data_type][idx],
+        regional_decode_results[rois[2]][behave_type][data_type][idx],
+        regional_decode_results[rois[3]][behave_type][data_type][idx],
+        regional_decode_results[rois[4]][behave_type][data_type][idx]
+    ])
+
+    ticks = rois.copy(); ticks.insert(0, 'all')
+    # plt.rcParams["figure.figsize"] = figure_size
+    plt.rcParams.update({'font.size': font_size})
+
+    fig = plt.figure(figsize=figure_size)
+    ax = fig.add_subplot(111)
+    mins, maxs, means, stds = sorted.min(1), sorted.max(1), sorted.mean(1), sorted.std(1)
+    plt.errorbar(np.arange(len(ticks))*2-.2, means, stds, 
+                     fmt='.k', ecolor='teal', lw=3, label='sorted')
+    plt.errorbar(np.arange(len(ticks))*2-.2, means, [means - mins, maxs - means],
+                     fmt='.k', ecolor='gray', lw=1.5)
+    
+    mins, maxs, means, stds = thresholded.min(1), thresholded.max(1), thresholded.mean(1), thresholded.std(1)
+    plt.errorbar(np.arange(len(ticks))*2, means, stds, 
+                 fmt='.k', ecolor='royalblue', lw=3, label='thresholded')
+    plt.errorbar(np.arange(len(ticks))*2, means, [means - mins, maxs - means],
+                     fmt='.k', ecolor='gray', lw=1.5)
+    
+    mins, maxs, means, stds = clusterless.min(1), clusterless.max(1), clusterless.mean(1), clusterless.std(1)
+    plt.errorbar(np.arange(len(ticks))*2+.2, means, stds, 
+                 fmt='.k', ecolor='coral', lw=3, label='clusterless')
+    plt.errorbar(np.arange(len(ticks))*2+.2, means, [means - mins, maxs - means],
+                     fmt='.k', ecolor='gray', lw=1.5)
+        
+    if add_smooth:
+        add_name = ' + tpca'
+    else:
+        add_name = ''
+        
+    plt.legend(loc='lower left')
+    ax.set_xticks(np.arange(0, len(ticks) * 2, 2), ticks)
+    ax.set_xlim(-2, len(ticks)*2)
+    ax.set_ylabel(metric_type);
+    ax.set_title(title);
+    
+    for axis in ['top','bottom','left','right']:
+        ax.spines[axis].set_linewidth(1.5)
+    
+    if save_fig:
+        fig.savefig(f'{fig_path}/compare{smooth_type}_decoders_{behave_type}_{metric_type}.png', dpi=200)
+    else:
+        plt.show()
     
 
 def define_box_properties(plot_name, color_code, label):
