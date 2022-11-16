@@ -87,8 +87,8 @@ def sliding_window(
     return windowed_neural_data, half_window_size, n_windows
 
 
-def cv_decode_dynamic(x, y, n_trials, behave_type, n_splits=5, seed=666, shuffle=True):
-    kf = KFold(n_splits=n_splits, random_state=seed, shuffle=True)
+def cv_decode_dynamic(x, y, n_trials, behave_type, n_folds=5, seed=666, shuffle=True):
+    kf = KFold(n_splits=n_folds, random_state=seed, shuffle=True)
 
     x_by_trial = x.reshape((n_trials, -1))
     y_by_trial = y.reshape((n_trials, -1))

@@ -251,9 +251,9 @@ def plot_compare_decoder_barplots(
             f'{data_path}/{rois[4]}{smooth_type}_decode_results.npy', allow_pickle=True).item()
     }
 
-    if metric_type == 'accuracy':
+    if np.logical_or(metric_type == 'accuracy', metric_type == 'r2'):
         idx = 0
-    elif metric_type == 'auc':
+    elif np.logical_or(metric_type == 'auc', metric_type == 'rmse'):
         idx = 1
         
     data_type = 'sorted'
