@@ -148,7 +148,8 @@ def plot_MoG_bounds(
     axes[0].set_title(f'{title}')
     axes[1].set_xlabel('max ptp (amp)')
     axes[1].set_ylabel('z (um)')
-    axes[1].set_title(f'n_units = {len(np.unique(labels_display))}')
+    if plot_MoG:
+        axes[1].set_title(f'n_units = {len(np.unique(labels_display))}')
 
     for ax in ['top','bottom','left','right']:
         axes[0].spines[ax].set_linewidth(1)
