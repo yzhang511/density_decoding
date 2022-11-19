@@ -257,8 +257,28 @@ def plot_compare_decoder_barplots(
     elif np.logical_or(metric_type == 'auc', metric_type == 'rmse'):
         idx = 1
         
+    data_type = 'good units'
+    good_units = np.array([
+        all_decode_results[behave_type][data_type][idx],
+        regional_decode_results[rois[0]][behave_type][data_type][idx],
+        regional_decode_results[rois[1]][behave_type][data_type][idx],
+        regional_decode_results[rois[2]][behave_type][data_type][idx],
+        regional_decode_results[rois[3]][behave_type][data_type][idx],
+        regional_decode_results[rois[4]][behave_type][data_type][idx]
+    ])
+        
     data_type = 'sorted'
     sorted = np.array([
+        all_decode_results[behave_type][data_type][idx],
+        regional_decode_results[rois[0]][behave_type][data_type][idx],
+        regional_decode_results[rois[1]][behave_type][data_type][idx],
+        regional_decode_results[rois[2]][behave_type][data_type][idx],
+        regional_decode_results[rois[3]][behave_type][data_type][idx],
+        regional_decode_results[rois[4]][behave_type][data_type][idx]
+    ])
+    
+    data_type = 'kilosort thresholded'
+    kilosort_thresholded = np.array([
         all_decode_results[behave_type][data_type][idx],
         regional_decode_results[rois[0]][behave_type][data_type][idx],
         regional_decode_results[rois[1]][behave_type][data_type][idx],
@@ -288,27 +308,40 @@ def plot_compare_decoder_barplots(
     ])
 
     ticks = rois.copy(); ticks.insert(0, 'all')
-    # plt.rcParams["figure.figsize"] = figure_size
     plt.rcParams.update({'font.size': font_size})
 
     fig = plt.figure(figsize=figure_size)
     ax = fig.add_subplot(111)
+    
+    mins, maxs, means, stds = good_units.min(1), good_units.max(1), good_units.mean(1), good_units.std(1)
+    plt.errorbar(np.arange(len(ticks))*2-.4, means, stds, 
+                     fmt='.k', ecolor='goldenrod', lw=3, label='good units')
+    plt.errorbar(np.arange(len(ticks))*2-.4, means, [means - mins, maxs - means],
+                     fmt='.k', ecolor='gray', lw=1.5)
+    
     mins, maxs, means, stds = sorted.min(1), sorted.max(1), sorted.mean(1), sorted.std(1)
     plt.errorbar(np.arange(len(ticks))*2-.2, means, stds, 
                      fmt='.k', ecolor='teal', lw=3, label='sorted')
     plt.errorbar(np.arange(len(ticks))*2-.2, means, [means - mins, maxs - means],
                      fmt='.k', ecolor='gray', lw=1.5)
     
-    mins, maxs, means, stds = thresholded.min(1), thresholded.max(1), thresholded.mean(1), thresholded.std(1)
+    mins, maxs, means, stds = \
+    kilosort_thresholded.min(1), kilosort_thresholded.max(1), kilosort_thresholded.mean(1), kilosort_thresholded.std(1)
     plt.errorbar(np.arange(len(ticks))*2, means, stds, 
-                 fmt='.k', ecolor='royalblue', lw=3, label='thresholded')
+                     fmt='.k', ecolor='skyblue', lw=3, label='kilosort thresholded')
     plt.errorbar(np.arange(len(ticks))*2, means, [means - mins, maxs - means],
                      fmt='.k', ecolor='gray', lw=1.5)
     
-    mins, maxs, means, stds = clusterless.min(1), clusterless.max(1), clusterless.mean(1), clusterless.std(1)
+    mins, maxs, means, stds = thresholded.min(1), thresholded.max(1), thresholded.mean(1), thresholded.std(1)
     plt.errorbar(np.arange(len(ticks))*2+.2, means, stds, 
-                 fmt='.k', ecolor='coral', lw=3, label='clusterless')
+                 fmt='.k', ecolor='royalblue', lw=3, label='thresholded')
     plt.errorbar(np.arange(len(ticks))*2+.2, means, [means - mins, maxs - means],
+                     fmt='.k', ecolor='gray', lw=1.5)
+    
+    mins, maxs, means, stds = clusterless.min(1), clusterless.max(1), clusterless.mean(1), clusterless.std(1)
+    plt.errorbar(np.arange(len(ticks))*2+.4, means, stds, 
+                 fmt='.k', ecolor='coral', lw=3, label='clusterless')
+    plt.errorbar(np.arange(len(ticks))*2+.4, means, [means - mins, maxs - means],
                      fmt='.k', ecolor='gray', lw=1.5)
         
     if add_smooth:

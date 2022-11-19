@@ -16,7 +16,9 @@ def load_neural_data(
     keep_active_trials=True, 
     roi='all',
     kilosort=False,
-    triage=False
+    triage=False,
+    good_units=False,
+    thresholding=False,
 ):
     '''
     spike_times (seconds)
@@ -37,6 +39,11 @@ def load_neural_data(
     
     if kilosort:
         data_path = neural_data_path + '/kilosort_localizations' 
+        spikes, clusters, channels = sl.load_spike_sorting()
+        clusters = sl.merge_clusters(spikes, clusters, channels)
+        if good_units:
+            good_clusters = clusters['cluster_id'][clusters['label'] == 1]
+            print(f'found {len(good_clusters)} good ibl units ..')
         if os.path.exists(data_path):
             spike_train = \
                 np.load(f'{data_path}/aligned_spike_train.npy')
@@ -49,8 +56,6 @@ def load_neural_data(
             x, _, _, z, _ = localization_results.T
             localization = True
         else:
-            spikes, clusters, channels = sl.load_spike_sorting()
-            clusters = sl.merge_clusters(spikes, clusters, channels)
             spike_times = sl.samples2times(spikes.times, direction='reverse')
             spike_channels = [clusters.channels[i] for i in spikes.clusters]
             spike_index = np.c_[spike_times, spike_channels]
@@ -93,9 +98,13 @@ def load_neural_data(
     if kilosort:
         _, spike_clusters = spike_train.T
         sorted = np.c_[spike_times, spike_clusters]
+        if good_units:
+            good_sorted = np.vstack([sorted[sorted[:,1].astype(int) == unit] for unit in good_clusters])
         
     if localization:        
-        unsorted = np.c_[spike_times, spike_channels, x, z, maxptp]       
+        unsorted = np.c_[spike_times, spike_channels, x, z, maxptp]  
+    elif thresholding:
+        unsorted = np.c_[spike_times, spike_channels]
 
     if roi != 'all':
         spikes, clusters, channels = sl.load_spike_sorting()
@@ -117,15 +126,20 @@ def load_neural_data(
             for cluster in valid_clusters:
                 sorted_regional.append(sorted[sorted[:,1] == cluster])
             sorted = np.vstack(sorted_regional)
+            if good_units:
+                good_sorted_regional = []
+                for cluster in np.intersect1d(valid_clusters, good_clusters):
+                    good_sorted_regional.append(sorted[sorted[:,1] == cluster])
+                    good_sorted = np.vstack(good_sorted_regional)
         
-        if localization:
+        if np.logical_or(localization, thresholding):
             unsorted_regional = []
             for i in valid_channels:
                 unsorted_regional.append(unsorted[unsorted[:,1] == i])
             unsorted = np.vstack(unsorted_regional)
             
     unsorted_trials = []
-    if localization:
+    if np.logical_or(localization, thresholding):
         for i in range(n_trials):
             mask = np.logical_and( unsorted[:,0] >= stimulus_onset_times[i]-0.5,   
                                  unsorted[:,0] <= stimulus_onset_times[i]+1 )  
@@ -139,7 +153,20 @@ def load_neural_data(
                                  sorted[:,0] <= stimulus_onset_times[i]+1 )  
             trial = sorted[mask,:]
             sorted_trials.append(trial)
-        return sorted_trials, unsorted_trials, stimulus_onset_times, np1_channel_map
+        if good_units:
+            tmp = pd.DataFrame({'time': good_sorted[:,0], 'old_unit': good_sorted[:,1].astype(int)})
+            tmp["old_unit"] = tmp["old_unit"].astype("category")
+            tmp["new_unit"] = pd.factorize(tmp.old_unit)[0]
+            good_spike_train = np.array(tmp[['time','new_unit']])
+            good_sorted_trials = []
+            for i in range(n_trials):
+                mask = np.logical_and( good_sorted[:,0] >= stimulus_onset_times[i]-0.5,   
+                                     good_sorted[:,0] <= stimulus_onset_times[i]+1 )  
+                trial = good_sorted[mask,:]
+                good_sorted_trials.append(trial)
+            return sorted_trials, good_sorted_trials, unsorted_trials, stimulus_onset_times, np1_channel_map
+        else:
+            return sorted_trials, unsorted_trials, stimulus_onset_times, np1_channel_map
     else:
         return unsorted_trials, stimulus_onset_times, np1_channel_map
         
