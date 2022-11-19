@@ -98,8 +98,6 @@ def load_neural_data(
     if kilosort:
         _, spike_clusters = spike_train.T
         sorted = np.c_[spike_times, spike_clusters]
-        if good_units:
-            good_sorted = np.vstack([sorted[sorted[:,1].astype(int) == unit] for unit in good_clusters])
         
     if localization:        
         unsorted = np.c_[spike_times, spike_channels, x, z, maxptp]  
@@ -154,10 +152,11 @@ def load_neural_data(
             trial = sorted[mask,:]
             sorted_trials.append(trial)
         if good_units:
+            good_sorted = np.vstack([sorted[sorted[:,1] == cluster] for cluster in good_clusters])
             tmp = pd.DataFrame({'time': good_sorted[:,0], 'old_unit': good_sorted[:,1].astype(int)})
             tmp["old_unit"] = tmp["old_unit"].astype("category")
             tmp["new_unit"] = pd.factorize(tmp.old_unit)[0]
-            good_spike_train = np.array(tmp[['time','new_unit']])
+            good_sorted = np.array(tmp[['time','new_unit']])
             good_sorted_trials = []
             for i in range(n_trials):
                 mask = np.logical_and( good_sorted[:,0] >= stimulus_onset_times[i]-0.5,   
