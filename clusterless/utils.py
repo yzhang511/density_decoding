@@ -231,7 +231,7 @@ class NP1DataLoader():
             spike_times, spike_labels = data[:,:2].T
             spike_probs = data[:,2:]
             n_gaussians = len(np.unique(spike_labels))
-            spike_probs = spike_probs[:, np.unique(spike_labels)]
+            # spike_probs = spike_probs[:, np.unique(spike_labels)]
             spike_train = np.c_[spike_times, spike_labels, spike_probs]
 
             for i in range(self.n_trials):

@@ -2,7 +2,8 @@ import numpy as np
 import random
 import torch
 import torch.distributions as D
-from sklearn.metrics import accuracy_score, roc_auc_score
+from scipy.special import logsumexp
+from sklearn.mixture import GaussianMixture
 
 # helper functions
 def safe_log(x, minval=1e-10):
@@ -100,39 +101,72 @@ class ADVI(torch.nn.Module):
         
         return elbo
     
-    def train_advi(self, ):
-        pass
     
-    def calc_dynamic_mixing_proportions(self, ):
-        pass
+    def train_advi(self, s, y, ks, ts, batch_ids, optim, max_iter):
+        '''
+        
+        '''
+        elbos = []
+        N = s.shape[0]
+        for i in range(max_iter):
+            tot_elbo = 0
+            for n, batch_idx in enumerate(batch_ids): 
+                mask = torch.logical_and(ks >= batch_idx[0], ks <= batch_idx[-1])
+                batch_s = s[mask]
+                batch_y = y[list(batch_idx)]
+                batch_ks = ks[mask]
+                batch_ts = ts[mask]
+                loss = - self(batch_s, batch_y, batch_ks, batch_ts) / N
+                loss.backward()
+                tot_elbo -= loss.item()
+                if (n+1) % 100 == 0:
+                    print(f'iter: {i+1} batch {n+1}')
+                optim.step()
+                optim.zero_grad()
+            print(f'iter: {i+1} total elbo: {tot_elbo:.2f}')
+            elbos.append(tot_elbo)
+        elbos = [elbo for elbo in elbos]
+        return elbos
     
     
-    def encode_gmm(self, trials, train, test, y_train, y_hat):
+    def calc_dynamic_mixing_proportions(self, y):
+        '''
+        
+        '''
+        log_lambdas = torch.zeros((len(y), self.Nc, self.Nt))
+        for k in range(len(y)):
+            for t in range(self.Nt):
+                log_lambdas[k,:,t] = self.b.loc + self.beta.loc[:,t] * y[k][t]
+
+        log_pis = log_lambdas - torch.logsumexp(log_lambdas, 1)[:,None,:]
+        return log_pis.exp().detach().numpy()
+    
+    
+    def encode_gmm(self, data, train, test, y_train, y_pred):
         
         Nk = len(train) + len(test)
-        log_lambdas_hat = np.zeros((Nk, self.Nc, self.Nt))
+        log_lambdas = np.zeros((Nk, self.Nc, self.Nt))
         for i, k in enumerate(train):
             for t in range(self.Nt):
-                log_lambdas_hat[k,:,t] = self.b.loc.detach().numpy() + \
-                                         self.beta.loc[:,t].detach().numpy() * y_train[i][t]
+                log_lambdas[k,:,t] = self.b.loc.detach().numpy() + \
+                                     self.beta.loc[:,t].detach().numpy() * y_train[i][t]
 
         for i, k in enumerate(test):
             for t in range(self.Nt):
-                log_lambdas_hat[k,:,t] = self.b.loc.detach().numpy() + \
-                                         self.betas.loc[:,t].detach().numpy() * y_hat[i][t]
+                log_lambdas[k,:,t] = self.b.loc.detach().numpy() + \
+                                     self.beta.loc[:,t].detach().numpy() * y_pred[i][t]
 
-        log_pis_hat = log_lambdas_hat - logsumexp(log_lambdas_hat, 1)[:,None,:]
-        enc_pis = np.exp(log_pis_hat)
+        log_pis = log_lambdas - logsumexp(log_lambdas, 1)[:,None,:]
+        encoded_pis = np.exp(log_pis)
         
-        enc_all = np.zeros((Nk, self.Nc, self.Nt))
-        for k in range(enc_all.shape[0]):
+        encoded_weights = np.zeros_like(log_lambdas)
+        for k in range(encoded_weights.shape[0]):
             for t in range(self.Nt):
-                enc_gmm = GaussianMixture(n_components=self.Nc, covariance_type='full')
-                enc_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(self.covs))
-                enc_gmm.weights_ = enc_pis[k,:,t]
-                enc_gmm.means_ = self.means
-                enc_gmm.covariances_ = self.covs
-                if len(trials[k][t]) > 0:
-                    enc_all[k,:,t] = enc_gmm.predict_proba(trials[k][t][:,1:]).sum(0)
-        
-        return enc_pis, enc_all
+                encoded_gmm = GaussianMixture(n_components=self.Nc, covariance_type='full')
+                encoded_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(self.covs))
+                encoded_gmm.weights_ = encoded_pis[k,:,t]
+                encoded_gmm.means_ = self.means
+                encoded_gmm.covariances_ = self.covs
+                if len(data[k][t]) > 0:
+                    encoded_weights[k,:,t] = encoded_gmm.predict_proba(data[k][t][:,1:]).sum(0)
+        return encoded_pis, encoded_weights
