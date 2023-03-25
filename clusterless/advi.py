@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import torch
+import torch.distributions as D
 from sklearn.metrics import accuracy_score, roc_auc_score
 
 # helper functions
@@ -28,10 +29,10 @@ class ADVI(torch.nn.Module):
     def log_prior_plus_logabsdet_J(self, b_sample, beta_sample):
         
         # log prior for beta, evaluated at sampled values for beta
-        lp_b = D.Normal(torch.zeros((Nc)), torch.ones((Nc))).log_prob(b_sample).sum()
+        lp_b = D.Normal(torch.zeros((self.Nc)), torch.ones((self.Nc))).log_prob(b_sample).sum()
 
         # log prior sig + log jacobian
-        lp_beta = D.Normal(torch.zeros((Nc, Nt)), torch.ones((Nc, Nt))).log_prob(beta_sample).sum()
+        lp_beta = D.Normal(torch.zeros((self.Nc, self.Nt)), torch.ones((self.Nc, self.Nt))).log_prob(beta_sample).sum()
         
         return lp_b + lp_beta
     
@@ -98,6 +99,12 @@ class ADVI(torch.nn.Module):
         elbo -= self.log_q(b_sample, beta_sample)                                  
         
         return elbo
+    
+    def train_advi(self, ):
+        pass
+    
+    def calc_dynamic_mixing_proportions(self, ):
+        pass
     
     
     def encode_gmm(self, trials, train, test, y_train, y_hat):
