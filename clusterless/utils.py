@@ -289,7 +289,7 @@ class ADVIDataLoader():
         # generate trial and time indices needed for model training
         self.trials = []; self.trial_ids = []; self.time_ids = []
         for k in range(self.n_trials):
-            trial = data[k]
+            trial = data[k].copy()
             trial[:,0] = trial[:,0] - trial[:,0].min()
             t_bins = np.digitize(trial[:,0], self.t_binning, right = False) - 1
             t_bin_lst = []
