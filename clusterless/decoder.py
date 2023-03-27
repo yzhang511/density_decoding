@@ -17,7 +17,7 @@ def dynamic_decoder(x, y, train, test):
     ridge.fit(x_train, y_train)
     y_pred = ridge.predict(x_test)
     
-    print(f'R2: {r2_score(y_test, y_pred):.3f}, MSE: {mean_squared_error(y_test, y_pred):.3f}, Corr: {pearsonr(y_test.flatten(), y_pred.flatten()).statistic:.3f}')
+    # print(f'R2: {r2_score(y_test, y_pred):.3f}, MSE: {mean_squared_error(y_test, y_pred):.3f}, Corr: {pearsonr(y_test.flatten(), y_pred.flatten()).statistic:.3f}')
     
     return y_train, y_test, y_pred
 
@@ -76,7 +76,11 @@ def sliding_window_decoder(x, y, train, test):
     ridge.fit(x_train, y_train)
     y_pred = ridge.predict(x_test)
     
-    print(f'R2: {r2_score(y_test, y_pred):.3f}, MSE: {mean_squared_error(y_test, y_pred):.3f}, Corr: {pearsonr(y_test.flatten(), y_pred.flatten()).statistic:.3f}')
+    r2 = r2_score(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    corr = pearsonr(y_test.flatten(), y_pred.flatten()).statistic
     
-    return y_train, y_test, y_pred
+    print(f'R2: {r2:.3f}, MSE: {mse:.3f}, Corr: {corr:.3f}')
+    
+    return y_train, y_test, y_pred, r2, mse, corr
 
