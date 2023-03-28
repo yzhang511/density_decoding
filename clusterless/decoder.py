@@ -1,7 +1,30 @@
 import numpy as np
 from scipy.stats import pearsonr
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import LogisticRegression, Ridge, RidgeClassifier
 from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import accuracy_score, roc_auc_score
+
+seed = 666
+np.random.seed(seed)
+
+def static_decoder(x, y, train, test):
+    '''
+    
+    '''
+    x_train = x.reshape(-1, x.shape[1] * x.shape[2])[train]
+    x_test = x.reshape(-1, x.shape[1] * x.shape[2])[test]
+    y_train = y[train]
+    y_test = y[test]
+
+    lr = LogisticRegression(random_state=seed, max_iter=1e4, tol = 0.01, solver='liblinear')
+    lr.fit(x_train, y_train)
+    y_prob = lr.predict_proba(x_test)
+    y_pred = y_prob.argmax(1)
+    
+    acc = accuracy_score(y_test, y_pred)
+    print(f'lr accuracy: {acc:.3f}')
+    
+    return y_train, y_test, y_pred, y_prob, acc
 
 
 def dynamic_decoder(x, y, train, test):

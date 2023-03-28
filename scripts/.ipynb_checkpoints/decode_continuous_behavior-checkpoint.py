@@ -16,8 +16,8 @@ torch.manual_seed(seed)
 torch.set_default_dtype(torch.double)
 
 session = 'DY_009'
-region = 'vis'
-behavior = 'motion_energy'
+region = 'po'
+behavior = 'wheel_speed'
 if region != 'all':
     is_regional = True
 print(f'Decoding {behavior} using ephys data from {region} brain region in session {session}:')

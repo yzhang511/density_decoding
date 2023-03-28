@@ -197,15 +197,26 @@ class CAVI():
         self.test_t_ids = test_t_ids
         
     
-    def _compute_normal_log_dens(self, s, mu, cov):
+    def _compute_normal_log_dens(self, s, mu, cov, safe_cov=None):
         
         log_dens = []
         for j in range(self.C):
-            log_dens.append(
-                torch.tensor(
-                    multivariate_normal.logpdf(s, mu[j], cov[j])
+            try:
+                log_dens.append(
+                    torch.tensor(
+                        multivariate_normal.logpdf(s, mu[j], cov[j])
+                    )
                 )
-            )
+            except np.linalg.LinAlgError:
+                # error occurs when cov is not PSD
+                # use initial cov as a replacement to ensure numerical stability
+                # need a better solution 
+                log_dens.append(
+                    torch.tensor(
+                        multivariate_normal.logpdf(s, mu[j], safe_cov[j])
+                    )
+                )
+                print(f'cov {j} is not PSD.')
         return torch.vstack(log_dens).T # (*, C)
     
     
@@ -329,7 +340,7 @@ class CAVI():
         norm_lam = safe_log(lam) - safe_log(lam.sum(0))
         
         # compute initial elbo
-        log_dens = self._compute_normal_log_dens(s, mu, cov)
+        log_dens = self._compute_normal_log_dens(s, mu, cov, safe_cov=self.init_cov)
         elbo = self._compute_enc_elbo(r, y, log_dens, norm_lam)
         convergence = 1.
         elbos = [elbo]
@@ -344,7 +355,7 @@ class CAVI():
             mu, cov, lam, norm_lam = self._encode_m_step(s, r, y, mu, lam)
             
             # compute new elbo
-            log_dens = self._compute_normal_log_dens(s, mu, cov)
+            log_dens = self._compute_normal_log_dens(s, mu, cov, safe_cov=self.init_cov)
             elbo = self._compute_enc_elbo(r, y, log_dens, norm_lam)
             elbos.append(elbo)
             convergence = elbos[-1] - elbos[-2]
@@ -376,7 +387,7 @@ class CAVI():
         nu = nu.reshape(-1,1)
         
         # compute initial elbo
-        log_dens = self._compute_normal_log_dens(s, mu, cov)
+        log_dens = self._compute_normal_log_dens(s, mu, cov, safe_cov=init_cov)
         elbo = self._compute_dec_elbo(r, log_dens, norm_lam, nu, nu_k, p)
         convergence = 1.
         elbos = [elbo]
@@ -391,7 +402,7 @@ class CAVI():
             p, mu, cov = self._decode_m_step(s, r, nu_k, mu)
             
             # compute new elbo
-            log_dens = self._compute_normal_log_dens(s, mu, cov)
+            log_dens = self._compute_normal_log_dens(s, mu, cov, safe_cov=init_cov)
             elbo = self._compute_dec_elbo(r, log_dens, norm_lam, nu, nu_k, p)
             elbos.append(elbo)
             convergence = elbos[-1] - elbos[-2]
@@ -411,10 +422,9 @@ class CAVI():
     def eval_performance(self, nu_k, y_test):
         acc = accuracy_score(y_test, 1. * ( nu_k > .5 ))
         auc = roc_auc_score(y_test, nu_k)
-        print(f'decoding accuracy is {acc:.2f}')
-        print(f'decoding auc is {auc:.2f}')
+        print(f'cavi accuracy: {acc:.3f}')
+        # print(f'cavi auc is {auc:.3f}')
         return acc, auc
-    
     
     
     def encode_gmm(self, trials, lams, means, covs, train, test, y_train, y_hat):
