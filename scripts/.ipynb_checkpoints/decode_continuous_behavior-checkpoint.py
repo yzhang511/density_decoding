@@ -53,6 +53,9 @@ Nc = gmm.means_.shape[0]
 Nd = gmm.means_.shape[1]
 print(f'Finished fitting the initial GMM with {Nc} components.')
 
+ks_all_corrs = []
+thresh_corrs = []
+enc_corrs = []
 
 kf = KFold(n_splits=5, shuffle=True, random_state=seed)
 for i, (train_ids, test_ids) in enumerate(kf.split(advi_data_loader.behavior)):
@@ -111,6 +114,7 @@ for i, (train_ids, test_ids) in enumerate(kf.split(advi_data_loader.behavior)):
         thresholded, advi_data_loader.behavior, train, test)
     
     res_metrics.update({'thresholded': [r2, mse, corr]})
+    thresh_corrs.append(corr)
     
     print(f'Started decoding using encoded GMM:')
     
@@ -119,6 +123,7 @@ for i, (train_ids, test_ids) in enumerate(kf.split(advi_data_loader.behavior)):
         enc_all, advi_data_loader.behavior, train, test)
     
     res_metrics.update({'enc_gmm': [r2, mse, corr]})
+    enc_corrs.append(corr)
     
     
     print(f'Started decoding using all KS units:')
@@ -133,6 +138,7 @@ for i, (train_ids, test_ids) in enumerate(kf.split(advi_data_loader.behavior)):
         all_units, advi_data_loader.behavior, train, test)
     
     res_metrics.update({'all_units': [r2, mse, corr]})
+    ks_all_corrs.append(corr)
     
     print(f'Started decoding using good KS units:')
     
@@ -149,6 +155,8 @@ for i, (train_ids, test_ids) in enumerate(kf.split(advi_data_loader.behavior)):
     
     np.save(f'../neurips_results/{session}/{region}/{behavior}/res_fold{i+1}.npy', res_metrics)
     
-    
+print(f'thresholded mean corr: {np.mean(thresh_corrs):.3f}')
+print(f'sorted mean corr: {np.mean(ks_all_corrs):.3f}')
+print(f'encoded MoG mean corr: {np.mean(enc_corrs):.3f}')
     
     

@@ -71,7 +71,10 @@ class ADVI(torch.nn.Module):
         log_lambdas = torch.zeros((self.Nk, self.Nc, self.Nt))
         for k in range(self.Nk):
             for t in range(self.Nt):
-                log_lambdas[k,:,t] = b_sample + beta_sample[:,t] * y[k][t]
+                if len(y.shape) == 1:
+                    log_lambdas[k,:,t] = b_sample + beta_sample[:,t] * y[k]
+                else:
+                    log_lambdas[k,:,t] = b_sample + beta_sample[:,t] * y[k][t]
         log_pis = log_lambdas - torch.logsumexp(log_lambdas, 1)[:,None,:]
                                           
                                           
@@ -142,7 +145,10 @@ class ADVI(torch.nn.Module):
         log_lambdas = torch.zeros((len(y), self.Nc, self.Nt))
         for k in range(len(y)):
             for t in range(self.Nt):
-                log_lambdas[k,:,t] = self.b.loc + self.beta.loc[:,t] * y[k][t]
+                if len(y.shape) == 1:
+                    log_lambdas[k,:,t] = self.b.loc + self.beta.loc[:,t] * y[k]
+                else:
+                    log_lambdas[k,:,t] = self.b.loc + self.beta.loc[:,t] * y[k][t]
 
         log_pis = log_lambdas - torch.logsumexp(log_lambdas, 1)[:,None,:]
         return log_pis.exp().detach().numpy()
@@ -154,12 +160,20 @@ class ADVI(torch.nn.Module):
         log_lambdas = np.zeros((Nk, self.Nc, self.Nt))
         for i, k in enumerate(train):
             for t in range(self.Nt):
-                log_lambdas[k,:,t] = self.b.loc.detach().numpy() + \
+                if len(y_train.shape) == 1:
+                    log_lambdas[k,:,t] = self.b.loc.detach().numpy() + \
+                                         self.beta.loc[:,t].detach().numpy() * y_train[i]
+                else:
+                    log_lambdas[k,:,t] = self.b.loc.detach().numpy() + \
                                      self.beta.loc[:,t].detach().numpy() * y_train[i][t]
 
         for i, k in enumerate(test):
             for t in range(self.Nt):
-                log_lambdas[k,:,t] = self.b.loc.detach().numpy() + \
+                if len(y_pred.shape) == 1:
+                    log_lambdas[k,:,t] = self.b.loc.detach().numpy() + \
+                                         self.beta.loc[:,t].detach().numpy() * y_pred[i]
+                else:
+                    log_lambdas[k,:,t] = self.b.loc.detach().numpy() + \
                                      self.beta.loc[:,t].detach().numpy() * y_pred[i][t]
 
         log_pis = log_lambdas - logsumexp(log_lambdas, 1)[:,None,:]

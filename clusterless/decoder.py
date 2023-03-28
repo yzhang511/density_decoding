@@ -16,7 +16,8 @@ def static_decoder(x, y, train, test):
     y_train = y[train]
     y_test = y[test]
 
-    lr = LogisticRegression(random_state=seed, max_iter=1e4, tol = 0.01, solver='liblinear')
+    lr = LogisticRegression(random_state=seed, max_iter=1e4, tol = 0.01, solver='liblinear',
+                            penalty='l2', C=1000)
     lr.fit(x_train, y_train)
     y_prob = lr.predict_proba(x_test)
     y_pred = y_prob.argmax(1)
