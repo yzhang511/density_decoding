@@ -130,23 +130,27 @@ class NP1DataLoader():
         return self._partition_into_trials(unsorted)
             
     
-    def load_behaviors(self, behavior_type='discrete'):
+    def load_behaviors(self, behavior_type='choice'):
         # TO DO: Use dict to index behaviors instead of hard-coding.
         behave_dict = np.load(f'{self.behavior_path}/{self.eid}_feature.npy')
         
-        if behavior_type == 'discrete':
+        if behavior_type == 'choice':
             choices = behave_dict[:,:,:,23:25].sum(2)[0,:,:]
-            stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
-            rewards = behave_dict[:,:,:,25:27].sum(2)[0,:,:]
-            priors = behave_dict[0,:,0,28:29]
-
-            print('Choices left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), 
+            print('choice left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), 
                                                      (choices.sum(0[1]/choices.shape[0])))
-            print('Stimuli left: %.3f, right: %.3f'%((np.sum(stimuli.argmax(1)==1)/stimuli.shape[0]), 
-                                                     (np.sum(stimuli.argmax(1)==0)/stimuli.shape[0])))
-            print('Reward wrong: %.3f, correct: %.3f'%((rewards.sum(0)[0]/rewards.shape[0]), 
+            return choices.argmax(1)
+        elif behavior_type == 'reward':
+            rewards = behave_dict[:,:,:,25:27].sum(2)[0,:,:]
+            print('reward wrong: %.3f, correct: %.3f'%((rewards.sum(0)[0]/rewards.shape[0]), 
                                                        (rewards.sum(0)[1]/rewards.shape[0])))
-
+            return rewards.argmax(1)
+        elif behavior_type == 'prior':
+            priors = behave_dict[0,:,0,28:29]
+            return priors
+        elif behavior_type == 'stimulus':
+            stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
+            print('stimulus left: %.3f, right: %.3f'%((np.sum(stimuli.argmax(1)==1)/stimuli.shape[0]), 
+                                                      (np.sum(stimuli.argmax(1)==0)/stimuli.shape[0])))
             # transform the variable stimulus for plotting purposes
             transformed_stimuli = []
             for s in stimuli:
@@ -160,18 +164,28 @@ class NP1DataLoader():
             enc = OneHotEncoder(handle_unknown='ignore')
             enc.fit(transformed_stimuli.reshape(-1,1))
             one_hot_stimuli = enc.transform(transformed_stimuli.reshape(-1,1)).toarray()
-            return choices, stimuli, transformed_stimuli, one_hot_stimuli, enc.categories_, rewards, priors
-            
-        elif behavior_type == 'continuous':
+            return stimuli, transformed_stimuli, one_hot_stimuli, enc.categories_
+                  
+        elif behavior_type == 'motion_energy':
             motion_energy = behave_dict[0,:,:,18]
+            return motion_energy
+        elif behavior_type == 'wheel_velocity':
             wheel_velocity = behave_dict[0,:,:,27]
+            return wheel_velocity
+        elif behavior_type == 'wheel_speed':
             wheel_speed = np.abs(wheel_velocity)
+            return wheel_speed
+        elif behavior_type == 'paw_speed':
             paw_speed = behave_dict[0,:,:,15]
+            return paw_speed
+        elif behavior_type == 'nose_speed':
             nose_speed = behave_dict[0,:,:,16]
+            return nose_speed
+        elif behavior_type == 'pupil_diameter':
             pupil_diameter = behave_dict[0,:,:,17]
-            return motion_energy, wheel_velocity, wheel_speed, paw_speed, nose_speed, pupil_diameter
+            return pupil_diameter
         else:
-            print('Invalid behavior type. Must be either ``discrete`` or ``continuous``.')
+            print('Invalid behavior type.')
             
             
     def inverse_transform_stimulus(self, transformed_stimuli, enc_categories):
@@ -325,7 +339,7 @@ class ADVIDataLoader():
     
                   
     
-def fit_initial_gmm(spike_features):
+def initialize_gmm(spike_features):
     '''
     Fit a gmm to initialize the CAVI/ADVI model. 
     For spikes detected on each channel:
