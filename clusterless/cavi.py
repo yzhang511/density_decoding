@@ -48,6 +48,18 @@ class CAVI():
         self.test_ts = test_ts
         
     def _compute_gmm_log_pdf(self, s, mu, cov, safe_cov=None):
+        '''
+        Inputs:
+        -------
+        s: (n, d) array; n = # of all spikes in the recording, d = spike feature dimension.
+        mu: (c, d) array; updated gmm means. 
+        cov: (c, d, d) array; updated gmm covariance matrix. 
+        safe_cov: (c, d, d) array; alternative covariance matrix to use in case cov is not PSD.
+         
+        Outputs:
+        -------
+        ll: (n, c) array; computed log-likelihood. 
+        '''
         ll = []
         for j in range(self.n_c):
             try:
@@ -70,6 +82,18 @@ class CAVI():
     
     
     def _compute_encoder_elbo(self, r, y, ll, norm_lam):
+        '''
+        Inputs:
+        -------
+        r:  (n, c) array; normalized E_q(z)[z].  
+        y:  (n, 2) array; a convenient representation of the observed y for einsum. 
+        ll: (n, c) array; computed log-likelihood. 
+        norm_lam: (c, t, 2) array; normalized lambda. 
+        
+        Outputs:
+        -------
+        elbo: Encoder ELBO.
+        '''
         elbo = torch.sum(torch.tensor(
             [torch.einsum('i,i->', r[:,j], ll[:,j]) for j in range(self.n_c)]
         ))
@@ -84,6 +108,20 @@ class CAVI():
     
     
     def _compute_decoder_elbo(self, r, ll, norm_lam, nu, nu_k, p):
+        '''
+        Inputs:
+        -------
+        r:  (n, c) array; normalized E_q(z)[z].  
+        ll: (n, c) array; computed log-likelihood. 
+        norm_lam: (c, t, 2) array; normalized lambda. 
+        nu: (n, 2) array; a convenient representation of E_q(y)[y] for einsum. 
+        nu_k: (k,) array; alternative representation of E_q(y)[y].
+        p: float; probability of choosing left or right in a visual decision task. 
+        
+        Outputs:
+        -------
+        elbo: Decoder ELBO.
+        '''
         elbo = torch.sum(torch.tensor(
             [torch.einsum('i,i->', r[:,j], ll[:,j]) for j in range(self.n_c)]
         ))
@@ -100,6 +138,18 @@ class CAVI():
     
     
     def _encode_e_step(self, r, y, ll, norm_lam):
+        '''
+        Inputs:
+        -------
+        r:  (n, c) array; normalized E_q(z)[z].  
+        y:  (n, 2) array; a convenient representation of the observed y for einsum. 
+        ll: (n, c) array; computed log-likelihood. 
+        norm_lam: (c, t, 2) array; normalized lambda. 
+        
+        Outputs:
+        -------
+        r:  (n, c) array; updated normalized E_q(z)[z].  
+        '''
         for t in range(self.n_t):
             r[self.train_ts[t]] = torch.exp( ll[self.train_ts[t]] + \
                       torch.einsum('il,j->ij', y[self.train_ts[t]], norm_lam[:,t,1]) + \
@@ -110,6 +160,22 @@ class CAVI():
         
     
     def _encode_m_step(self, s, r, y, mu, lam):
+        '''
+        Inputs:
+        -------
+        s:   (n, d) array; n = # of all spikes in the recording, d = spike feature dimension.
+        r:   (n, c) array; normalized E_q(z)[z].  
+        y:   (n, 2) array; a convenient representation of the observed y for einsum. 
+        mu:  (c, d) array; gmm means.
+        lam: (c, t, 2) array; unnormalized lambda.
+        
+        Outputs:
+        -------
+        mu:  (c, d) array; updated gmm means. 
+        cov: (c, d, d) array; updated gmm covariance matrix. 
+        lam: (c, t, 2) array; updated unnormalized lambda.
+        norm_lam: (c, t, 2) array; updated normalized lambda.
+        '''
         for j in range(self.n_c):
             no_j_idx = torch.cat([torch.arange(j), torch.arange(j+1, self.n_c)])
             lam_sum_no_j = lam[no_j_idx,:,:].sum(0)
@@ -128,6 +194,22 @@ class CAVI():
     
     
     def _decode_e_step(self, r, ll, norm_lam, nu, nu_k, p):
+        '''
+        Inputs:
+        -------
+        r:   (n, c) array; normalized E_q(z)[z].  
+        ll: (n, c) array; computed log-likelihood. 
+        norm_lam: (c, t, 2) array; normalized lambda.
+        nu: (n, 2) array; a convenient representation of E_q(y)[y] for einsum. 
+        nu_k: (k,) array; alternative representation of E_q(y)[y].
+        p: float; probability of choosing left or right in a visual decision task. 
+        
+        Outputs:
+        -------
+        r:   (n, c) array; updated normalized E_q(z)[z].  
+        nu: (n, 2) array; updated E_q(y)[y] for einsum. 
+        nu_k: (k,) array; updated E_q(y)[y].
+        '''
         for t in range(self.n_t):
             r[self.test_ts[t]] = torch.exp( ll[self.test_ts[t]] + \
                       torch.einsum('il,j->ij', nu[self.test_ts[t]], norm_lam[:,t,1]) + \
@@ -150,6 +232,20 @@ class CAVI():
     
     
     def _decode_m_step(self, s, r, nu_k, mu):
+        '''
+        Inputs:
+        -------
+        s:   (n, d) array; n = # of all spikes in the recording, d = spike feature dimension.
+        r:   (n, c) array; normalized E_q(z)[z].  
+        nu_k: (k,) array; alternative representation of E_q(y)[y].
+        mu:  (c, d) array; gmm means.
+        
+        Outputs:
+        -------
+        p: float; probability of choosing left or right in a visual decision task. 
+        mu:  (c, d) array; updated gmm means. 
+        cov: (c, d, d) array; updated gmm covariance matrix. 
+        '''
         p = nu_k.sum() / self.test_n_k
         norm = r.sum(0)
         mu = torch.einsum('j,ij,ip->jp', 1/norm, r, s)
@@ -159,6 +255,20 @@ class CAVI():
     
     
     def encode(self, s, y, max_iter=20, eps=1e-6):
+        '''
+        Inputs:
+        -------
+        s:   (n, d) array; n = # of all spikes in the recording, d = spike feature dimension.
+        y:   (n, 2) array; a convenient representation of the observed y for einsum. 
+        
+        Outputs:
+        -------
+        r:   (n, c) array; updated normalized E_q(z)[z]. 
+        lam: (c, t, 2) array; updated unnormalized lambda.
+        mu:  (c, d) array; updated gmm means. 
+        cov: (c, d, d) array; updated gmm covariance matrix. 
+        elbos: a list of encoder ELBOs. 
+        '''
         # initialize 
         r = torch.ones((s.shape[0], self.n_c)) / self.n_c
         lam = self.init_lam.clone()
@@ -192,6 +302,27 @@ class CAVI():
     
     
     def decode(self, s, init_p, init_mu, init_cov, init_lam, test_ks, test_ids, max_iter=20, eps=1e-6):
+        '''
+        Inputs:
+        -------
+        s:   (n, d) array; n = # of all spikes in the recording, d = spike feature dimension.
+        init_p: float; initial prob. of choosing left or right in a visual decision task 
+                (from encoder or observed data).
+        init_mu: (c, d) array; initial gmm means (from encoder or observed data). 
+        init_cov: (c, d, d) array; initial gmm covariance matrix (from encoder or observed data). 
+        init_lam: (c, t, 2) array; initial unnormalized lambda (from encoder or observed data).
+        test_ks: a list of arrays containing spike index in each test trial. 
+        test_ids: test trial indices. 
+        
+        Outputs:
+        -------
+        r:   (n, c) array; updated normalized E_q(z)[z]. 
+        nu_k: (k,) array; updated E_q(y)[y].
+        mu:  (c, d) array; updated gmm means. 
+        cov: (c, d, d) array; updated gmm covariance matrix. 
+        p: float; estimated prob. of choosing left or right in a visual decision task.
+        elbos: a list of decoder ELBOs. 
+        '''
         # initialize
         p = init_p.clone()
         r = torch.ones((s.shape[0], self.n_c)) / self.n_c
@@ -249,8 +380,8 @@ class CAVI():
         train: training trial indices. 
         test:  test trial indices. 
         lams: updated lambda (c,t,2) from either the encoder or decoder.
-        means: updated means (c,d) from either the encoder or decoder.
-        covs: updated covariances (c,d,d) from either the encoder or decoder.
+        means: updated gmm means (c,d) from either the encoder or decoder.
+        covs: updated gmm covariances (c,d,d) from either the encoder or decoder.
         y_train: discrete or continuous behaviors in the training trials. 
         y_pred:  initially predicted behaviors in the test trials; can obtain using either
                  multi-unit thresholding or vanilla gmm (with fixed mixing proportions).
