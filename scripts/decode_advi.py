@@ -167,6 +167,9 @@ if __name__ == "__main__":
             saved_y_obs.update({"thresholded": y_test})
             saved_y_pred.update({"thresholded": y_pred})
         else:
+            y_train, _, y_pred = continuous_decoder(
+                thresholded, advi_data_loader.behavior, train, test
+            )
             window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
                 sliding_window_decoder(
                     thresholded, advi_data_loader.behavior, train, test
@@ -179,21 +182,6 @@ if __name__ == "__main__":
             
         print("Decode using ADVI + GMM:")
         
-        # use vanilla gmm to initialize 
-        vanilla_gmm = np1_data_loader.prepare_decoder_input(
-            np.c_[spike_times, spike_labels, spike_probs],
-            is_gmm=True, n_t_bins=n_t, regional=is_regional
-        )
-        if args.behavior == "choice":
-            y_train, _, y_pred, _, _ = discrete_decoder(
-                vanilla_gmm, advi_data_loader.behavior, train, test, verbose=False
-            )
-        else:
-            y_train, _, y_pred = continuous_decoder(
-                vanilla_gmm, advi_data_loader.behavior, train, test
-            )
-            
-        # encode vanilla gmm with time-varying mixing proportions
         encoded_pis, encoded_weights = advi.encode_gmm(
             advi_data_loader.trials, train, test, y_train, y_pred
         )
