@@ -99,9 +99,9 @@ if __name__ == "__main__":
     
     # -- k-fold CV
     kf = KFold(n_splits=5, shuffle=True, random_state=seed)
-    for i, (train, test) in enumerate(kf.split(cavi_data_loader.behavior)):
+    for idx, (train, test) in enumerate(kf.split(cavi_data_loader.behavior)):
 
-        print(f"Fold {i+1} / 5:")
+        print(f"Fold {idx+1} / 5:")
         saved_metrics, saved_y_obs, saved_y_pred = {}, {}, {}
         saved_decoder_inputs, saved_mixing_props = {}, {}
 
@@ -241,10 +241,10 @@ if __name__ == "__main__":
                     f"/{args.pid}/choice/{args.brain_region}/our_pipeline/cavi_{res}/"})
             os.makedirs(save_path[res], exist_ok=True) 
             
-        np.save(save_path["metrics"] + f"fold{i+1}.npy", saved_metrics)
-        np.save(save_path["y_obs"] + f"fold{i+1}.npy", saved_y_obs)
-        np.save(save_path["y_pred"] + f"fold{i+1}.npy", saved_y_pred)
-        np.save(save_path["decoder_inputs"] + f"fold{i+1}.npy", saved_decoder_inputs)
-        np.save(save_path["mixing_props"] + f"fold{i+1}.npy", saved_mixing_props)
+        np.save(save_path["metrics"] + f"fold{idx+1}.npy", saved_metrics)
+        np.save(save_path["y_obs"] + f"fold{idx+1}.npy", saved_y_obs)
+        np.save(save_path["y_pred"] + f"fold{idx+1}.npy", saved_y_pred)
+        np.save(save_path["decoder_inputs"] + f"fold{idx+1}.npy", saved_decoder_inputs)
+        np.save(save_path["mixing_props"] + f"fold{idx+1}.npy", saved_mixing_props)
         
         
