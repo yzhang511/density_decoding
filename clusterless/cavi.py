@@ -8,6 +8,8 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 def safe_log(x, minval=1e-10):
     return torch.log(x + minval)
 
+def safe_divide(x, y):
+    return torch.clip(x / y, min = 0, max = 1)
 
 class CAVI():
     def __init__(
@@ -39,9 +41,9 @@ class CAVI():
         self.n_t = len(train_ts)
         self.n_c = init_mu.shape[0]
         self.n_d = init_mu.shape[1]
-        self.init_mu = init_mu
-        self.init_cov = init_cov
-        self.init_lam = init_lam
+        self.init_mu = torch.tensor(init_mu)
+        self.init_cov = torch.tensor(init_cov)
+        self.init_lam = torch.tensor(init_lam)
         self.train_ks = train_ks
         self.train_ts = train_ts
         self.test_ks = test_ks
@@ -270,6 +272,7 @@ class CAVI():
         elbos: a list of encoder ELBOs. 
         '''
         # initialize 
+        s = torch.tensor(s)
         r = torch.ones((s.shape[0], self.n_c)) / self.n_c
         lam = self.init_lam.clone()
         mu, cov = self.init_mu.clone(), self.init_cov.clone()
@@ -324,7 +327,8 @@ class CAVI():
         elbos: a list of decoder ELBOs. 
         '''
         # initialize
-        p = init_p.clone()
+        s = torch.tensor(s)
+        p = torch.tensor([init_p])
         r = torch.ones((s.shape[0], self.n_c)) / self.n_c
         mu, cov = init_mu.clone(), init_cov.clone()
         lam = init_lam.clone()

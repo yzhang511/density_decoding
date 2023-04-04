@@ -62,9 +62,9 @@ if __name__ == "__main__":
     g.add_argument("--relocalize_kilosort", action="store_true")
     
     g = ap.add_argument_group("Training configuration")
-    g.add_argument("--batch_size", default=1, type=int)
-    g.add_argument("--learning_rate", default=1e-2, type=float)
-    g.add_argument("--max_iter", default=20, type=int)
+    g.add_argument("--batch_size", default=6, type=int)
+    g.add_argument("--learning_rate", default=5e-3, type=float)
+    g.add_argument("--max_iter", default=50, type=int)
     
     args = ap.parse_args()
     

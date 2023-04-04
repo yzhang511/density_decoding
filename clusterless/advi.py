@@ -7,10 +7,6 @@ from sklearn.mixture import GaussianMixture
 def safe_log(x, minval=1e-10):
     return torch.log(x + minval)
 
-def safe_divide(x, y):
-    return torch.clip(x / y, min = 0, max = 1)
-
-
 class ADVI(torch.nn.Module):
     def __init__(self, n_k, n_t, n_c, n_d, init_means, init_covs):
         super(ADVI, self).__init__()
@@ -34,7 +30,7 @@ class ADVI(torch.nn.Module):
         self.covs = torch.nn.Parameter(torch.tensor(init_covs), requires_grad=False)
         
         # b ~ N(b_mu, exp(b_log_sig))
-        self.b_mu = torch.nn.Parameter(torch.randn((n_k)))
+        self.b_mu = torch.nn.Parameter(torch.randn((n_c)))
         self.b_log_sig = torch.nn.Parameter(torch.randn((n_c)))
         
         # beta ~ N(beta_mu, exp(beta_log_sig))
