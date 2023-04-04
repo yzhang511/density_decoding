@@ -131,7 +131,7 @@ if __name__ == "__main__":
             max_iter = args.max_iter
         )
     
-        print(f"Decode:")
+        print(f"Decode using CAVI only:")
         decoded_r, decoded_nu, decoded_mu, decoded_cov, decoded_p, elbo = cavi.decode(
             s = test_data[:,1:],
             init_p = init_p, 
