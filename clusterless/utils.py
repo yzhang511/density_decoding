@@ -21,8 +21,9 @@ class NP1DataLoader():
         self.behavior_path = behavior_path
         
         # load spike sorting data
-        self.one = ONE(base_url = 'https://openalyx.internationalbrainlab.org', 
-                       password = 'international', silent = True)
+        self.one = ONE(base_url = 'https://alyx.internationalbrainlab.org', silent=True)
+        # self.one = ONE(base_url = 'https://openalyx.internationalbrainlab.org', 
+        #                password = 'international', silent = True)
         ba = AllenAtlas()
         self.eid, probe = self.one.pid2eid(self.pid)
         self.sl = SpikeSortingLoader(pid = self.pid, one = self.one, atlas = ba)
@@ -137,7 +138,7 @@ class NP1DataLoader():
         if behavior_type == 'choice':
             choices = behave_dict[:,:,:,23:25].sum(2)[0,:,:]
             print('choice left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), 
-                                                     (choices.sum(0[1]/choices.shape[0])))
+                                                     (choices.sum(0)[1]/choices.shape[0])))
             return choices.argmax(1)
         elif behavior_type == 'reward':
             rewards = behave_dict[:,:,:,25:27].sum(2)[0,:,:]

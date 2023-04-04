@@ -13,6 +13,7 @@ def safe_divide(x, y):
 
 class ADVI(torch.nn.Module):
     def __init__(self, n_k, n_t, n_c, n_d, init_means, init_covs):
+        super(ADVI, self).__init__()
         '''
         ADVI can be used for both the continuous and discrete behavior variables.
         

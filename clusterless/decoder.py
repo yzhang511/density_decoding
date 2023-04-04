@@ -9,7 +9,7 @@ np.random.seed(seed)
 
 
 
-def discrete_decoder(x, y, train, test):
+def discrete_decoder(x, y, train, test, verbose=True):
     '''
     Inputs:
     ------
@@ -32,7 +32,8 @@ def discrete_decoder(x, y, train, test):
     y_prob = lr.predict_proba(x_test)
     y_pred = y_prob.argmax(1)
     acc = accuracy_score(y_test, y_pred)
-    print(f'accuracy: {acc:.3f}')
+    if verbose:
+        print(f'accuracy: {acc:.3f}')
     return y_train, y_test, y_pred, y_prob, acc
 
 
@@ -91,7 +92,7 @@ def sliding_window(
     return windowed_data, half_window_size, n_windows
 
 
-def sliding_window_decoder(x, y, train, test):
+def sliding_window_decoder(x, y, train, test, verbose=True):
     '''
     Inputs:
     ------
@@ -121,7 +122,8 @@ def sliding_window_decoder(x, y, train, test):
     r2 = r2_score(y_test, y_pred)
     mse = mean_squared_error(y_test, y_pred)
     corr = pearsonr(y_test.flatten(), y_pred.flatten()).statistic
-    print(f'R2: {r2:.3f}, MSE: {mse:.3f}, Corr: {corr:.3f}')
+    if verbose:
+        print(f'R2: {r2:.3f}, MSE: {mse:.3f}, Corr: {corr:.3f}')
     
     return y_train, y_test, y_pred, r2, mse, corr
 
