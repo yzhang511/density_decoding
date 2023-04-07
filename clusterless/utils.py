@@ -174,6 +174,7 @@ class NP1DataLoader():
             wheel_velocity = behave_dict[0,:,:,27]
             return wheel_velocity
         elif behavior_type == 'wheel_speed':
+            wheel_velocity = behave_dict[0,:,:,27]
             wheel_speed = np.abs(wheel_velocity)
             return wheel_speed
         elif behavior_type == 'paw_speed':

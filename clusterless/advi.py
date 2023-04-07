@@ -57,7 +57,7 @@ class ADVI(torch.nn.Module):
         
         return lq_b + lq_beta
         
-    def forward(self, s, y, ks, ts, sampling=True):
+    def forward(self, s, y, ks, ts, sampling=True, n_samples=100):
         '''
         Inputs:
         -------
@@ -94,32 +94,18 @@ class ADVI(torch.nn.Module):
         log_pis = log_lambdas - torch.logsumexp(log_lambdas, 1)[:,None,:]
                                           
                                           
-        # compute log-likelihood
-        ll = torch.zeros((s.shape[0], self.n_c))
-        for j in range(self.n_c):
-            ll[:,j] = D.multivariate_normal.MultivariateNormal(
-                            loc=self.means[j], 
-                            covariance_matrix=self.covs[j]
-                        ).log_prob(s)
-            
-        
-        # compute local variational variables
-        r = torch.zeros((s.shape[0], self.n_c))
-        for k in range(self.n_k):
-            for t in range(self.n_t):
-                k_t_idx = torch.logical_and(ks==torch.unique(ks).int()[k], ts==t)
-                r[k_t_idx] = torch.exp(ll[k_t_idx] + log_pis[k,:,t])
-                r[k_t_idx] = r[k_t_idx]/r[k_t_idx].sum(1)[:,None]
-                            
-                                          
         # compute ELBO
         elbo = self._log_prior_plus_logabsdet_J(b_sample, beta_sample)
-        elbo -= self._log_q(b_sample, beta_sample) 
+        elbo -= self._log_q(b_sample, beta_sample)
+        
         for k in range(self.n_k):
             for t in range(self.n_t):
                 k_t_idx = torch.logical_and(ks==torch.unique(ks).int()[k], ts==t)
-                elbo += torch.sum(r[k_t_idx] * (ll[k_t_idx] + log_pis[k,:,t]))
-                elbo -= torch.sum(r[k_t_idx] * safe_log(r[k_t_idx]))
+                mix = D.Categorical(log_pis[k,:,t].exp())
+                comp = D.MultivariateNormal(self.means, self.covs)
+                gmm = D.MixtureSameFamily(mix, comp)
+                if len(s[k_t_idx]) > 0:
+                    elbo += gmm.log_prob(s[k_t_idx]).sum()
         
         return elbo
     
