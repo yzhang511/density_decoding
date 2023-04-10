@@ -373,48 +373,44 @@ class CAVI():
         return acc, auc
     
     
-    def encode_gmm(self, data, lams, means, covs, train, test, y_train, y_pred):
-        '''
-        Encoding the gmm with the dynamic mixing propotions. 
-        
-        Inputs:
-        -------
-        data: a nested list of spike features; data[k][t] contains spikes that fall into k-th trial and
-              t-th time bin. data[k][t] is a (spike channels, spike features) array.
-        train: training trial indices. 
-        test:  test trial indices. 
-        lams: updated lambda (c,t,2) from either the encoder or decoder.
-        means: updated gmm means (c,d) from either the encoder or decoder.
-        covs: updated gmm covariances (c,d,d) from either the encoder or decoder.
-        y_train: discrete or continuous behaviors in the training trials. 
-        y_pred:  initially predicted behaviors in the test trials; can obtain using either
-                 multi-unit thresholding or vanilla gmm (with fixed mixing proportions).
-        
-        Outputs:
-        -------
-        encoded_pis: dynamic mixing proportions; (k, c, t) array. 
-        encoded_weights: posterior assignment weight matrix from the encoded gmm; (k, c, t) array. 
-        '''
-        encoded_pis = lams / lams.sum(0)
-        encoded_weights = np.zeros((len(train)+len(test), self.n_c, self.n_t))
-        for i, k in enumerate(train):
-            for t in range(self.n_t):
-                encoded_gmm = GaussianMixture(n_components=self.n_c, covariance_type='full')
-                encoded_gmm.weights_ = encoded_pis[:, t, y_train[i]]
-                encoded_gmm.means_ = means
-                encoded_gmm.covariances_ = covs
-                encoded_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(covs))
-                if len(data[k][t]) > 0:
-                    encoded_weights[k,:,t] = encoded_gmm.predict_proba(data[k][t][:,1:]).sum(0)
-                    
-        for i, k in enumerate(test):
-            for t in range(self.n_t):
-                encoded_gmm = GaussianMixture(n_components=self.n_c, covariance_type='full')
-                encoded_gmm.weights_ = encoded_pis[:, t, y_pred[i]]
-                encoded_gmm.means_ = means
-                encoded_gmm.covariances_ = covs
-                encoded_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(covs))
-                if len(data[k][t]) > 0:
-                    encoded_weights[k,:,t] = encoded_gmm.predict_proba(data[k][t][:,1:]).sum(0)
-        return encoded_pis, encoded_weights
-        
+def encode_gmm(data, lams, means, covs, train, test, y_train, y_pred):
+    '''
+    Encoding the gmm with the dynamic mixing propotions. 
+
+    Inputs:
+    -------
+    data: a nested list of spike features; data[k][t] contains spikes that fall into k-th trial and
+          t-th time bin. data[k][t] is a (spike channels, spike features) array.
+    train: training trial indices. 
+    test:  test trial indices. 
+    lams: updated lambda (c,t,2) from either the encoder or decoder.
+    means: updated gmm means (c,d) from either the encoder or decoder.
+    covs: updated gmm covariances (c,d,d) from either the encoder or decoder.
+    y_train: discrete or continuous behaviors in the training trials. 
+    y_pred:  initially predicted behaviors in the test trials; can obtain using either
+             multi-unit thresholding or vanilla gmm (with fixed mixing proportions).
+
+    Outputs:
+    -------
+    encoded_pis: dynamic mixing proportions; (k, c, t) array. 
+    encoded_weights: posterior assignment weight matrix from the encoded gmm; (k, c, t) array. 
+    '''
+    trial_idx = np.append(train, test)
+    y = np.vstack([y_train, y_pred])
+    n_k = len(trial_idx) 
+    n_c, n_t = lams.shape[0], lams.shape[1]
+    
+    encoded_pis = lams / lams.sum(0)
+    encoded_weights = np.zeros((n_k, n_c, n_t))
+    for i, k in enumerate(trial_idx):
+        for t in range(n_t):
+            encoded_gmm = GaussianMixture(n_components=n_c, covariance_type='full')
+            encoded_gmm.weights_ = encoded_pis[:, t, y[i]]
+            encoded_gmm.means_ = means
+            encoded_gmm.covariances_ = covs
+            encoded_gmm.precisions_cholesky_ = np.linalg.cholesky(np.linalg.inv(covs))
+            if len(data[k][t]) > 0:
+                encoded_weights[k,:,t] = encoded_gmm.predict_proba(data[k][t][:,1:]).sum(0)
+
+    return encoded_pis, encoded_weights
+

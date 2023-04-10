@@ -9,7 +9,15 @@ np.random.seed(seed)
 
 
 
-def discrete_decoder(x, y, train, test, verbose=True):
+def discrete_decoder(
+    x, 
+    y, 
+    train, 
+    test, 
+    penalty_type='l2', 
+    penalty_strength=1000, 
+    verbose=True
+):
     '''
     Inputs:
     ------
@@ -26,8 +34,8 @@ def discrete_decoder(x, y, train, test, verbose=True):
                             max_iter=1e4, 
                             tol = 0.01, 
                             solver='liblinear',
-                            penalty='l2', 
-                            C=1000)
+                            penalty=penalty_type, 
+                            C=penalty_strength)
     lr.fit(x_train, y_train)
     y_prob = lr.predict_proba(x_test)
     y_pred = y_prob.argmax(1)
@@ -37,7 +45,14 @@ def discrete_decoder(x, y, train, test, verbose=True):
     return y_train, y_test, y_pred, y_prob, acc
 
 
-def continuous_decoder(x, y, train, test):
+def continuous_decoder(
+    x, 
+    y, 
+    train, 
+    test,
+    penalty_strength=1000,
+    verbose=False
+):
     '''
     Inputs:
     ------
@@ -50,22 +65,23 @@ def continuous_decoder(x, y, train, test):
     x_test = x.reshape(-1, x.shape[1] * x.shape[2])[test]
     y_train = y[train]
     y_test = y[test]
-    ridge = Ridge(alpha=1000)
+    ridge = Ridge(alpha=penalty_strength)
     ridge.fit(x_train, y_train)
     y_pred = ridge.predict(x_test)
-    # r2 = r2_score(y_test, y_pred)
-    # mse = mean_squared_error(y_test, y_pred)
-    # corr = pearsonr(y_test.flatten(), y_pred.flatten()).statistic
-    # print(f'R2: {r2:.3f}, MSE: {mse:.3f}, Corr: {corr:.3f}')
+    if verbose:
+        r2 = r2_score(y_test, y_pred)
+        mse = mean_squared_error(y_test, y_pred)
+        corr = pearsonr(y_test.flatten(), y_pred.flatten()).statistic
+        print(f'R2: {r2:.3f}, MSE: {mse:.3f}, Corr: {corr:.3f}')
     return y_train, y_test, y_pred
 
 
 def sliding_window(
     data, 
     n_trials, 
-    n_t_bins = 30, 
-    window_size = 7, 
-    aggregate = False
+    n_t_bins=30, 
+    window_size=7, 
+    aggregate=False
 ):
     '''
     Inputs:
@@ -92,7 +108,15 @@ def sliding_window(
     return windowed_data, half_window_size, n_windows
 
 
-def sliding_window_decoder(x, y, train, test, verbose=True):
+def sliding_window_decoder(
+    x, 
+    y, 
+    train, 
+    test, 
+    window_size=7,
+    penalty_strength=1000,
+    verbose=True
+):
     '''
     Inputs:
     ------
@@ -102,7 +126,7 @@ def sliding_window_decoder(x, y, train, test, verbose=True):
     test: test trial indices. 
     '''
     n_trials = len(y)
-    windowed_x, half_window_size, n_windows = sliding_window(x, n_trials, window_size=7)
+    windowed_x, half_window_size, n_windows = sliding_window(x, n_trials, window_size=window_size)
     windowed_y = y[:, half_window_size:n_windows].reshape(-1, 1)
     
     x_by_trial = windowed_x.reshape((n_trials, -1))
@@ -115,7 +139,7 @@ def sliding_window_decoder(x, y, train, test, verbose=True):
     y_train = y_train.flatten()
     y_test = y_test.flatten()
     
-    ridge = Ridge(alpha=1000)
+    ridge = Ridge(alpha=penalty_strength)
     ridge.fit(x_train, y_train)
     y_pred = ridge.predict(x_test)
     

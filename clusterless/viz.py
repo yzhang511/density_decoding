@@ -54,9 +54,9 @@ def plot_behavior_traces(
     locs = [0, 25, 50, 75, 100, 125, 150, 175, 200]
     fig, axes = plt.subplots(6, 1, figsize=(12, 14))
     for i in range(6):
-        axes[i].plot(window_y_test[i*200:(i+1)*200], 
+        axes[i].plot(y_obs[i*200:(i+1)*200], 
                      c='gray', linestyle='dashed', label='observed', linewidth=3)
-        axes[i].plot(window_y_pred[i*200:(i+1)*200], 
+        axes[i].plot(y_pred[i*200:(i+1)*200], 
                      c='blue', alpha=.6, label=f'{data_type}', linewidth=3)
         axes[i].set_xticks(locs, np.arange(i*9, (i+1)*9)*1.5)
 

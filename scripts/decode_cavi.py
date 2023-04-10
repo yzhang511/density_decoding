@@ -13,7 +13,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import KFold
 
 from clusterless.utils import NP1DataLoader, ADVIDataLoader, initialize_gmm
-from clusterless.cavi import CAVI
+from clusterless.cavi import CAVI, encode_gmm
 from clusterless.decoder import discrete_decoder 
 
 def set_seed(value):
@@ -49,6 +49,8 @@ if __name__ == "__main__":
                    ])
     g.add_argument("--n_time_bins", default=10, type=int)
     g.add_argument("--relocalize_kilosort", action="store_true")
+    g.add_argument("--penalty_type", default="l2", type=str)
+    g.add_argument("--penalty_strength", default=1e3, type=int)
     
     g = ap.add_argument_group("Training configuration")
     g.add_argument("--max_iter", default=3, type=int)
@@ -158,7 +160,12 @@ if __name__ == "__main__":
         saved_decoder_inputs.update({"thresholded": thresholded})
 
         y_train, y_test, y_pred, _, acc = discrete_decoder(
-            thresholded, cavi_data_loader.behavior, train, test
+            thresholded, 
+            cavi_data_loader.behavior, 
+            train, 
+            test,
+            args.penalty_type,
+            args.penalty_strength
         )
         saved_metrics.update({"thresholded": acc})
         saved_y_obs.update({"thresholded": y_test})
@@ -168,7 +175,7 @@ if __name__ == "__main__":
         print("Decode using CAVI + GMM:")
         
         try:
-            encoded_pis, encoded_weights = cavi.encode_gmm(
+            encoded_pis, encoded_weights = encode_gmm(
                 cavi_data_loader.trials,
                 encoded_lam.numpy(), 
                 decoded_mu.numpy(), 
@@ -188,7 +195,12 @@ if __name__ == "__main__":
         saved_mixing_props.update({"cavi_gmm": encoded_pis})
         
         _, y_test, y_pred, _, acc = discrete_decoder(
-            encoded_weights, cavi_data_loader.behavior, train, test
+            encoded_weights, 
+            cavi_data_loader.behavior, 
+            train, 
+            test,
+            args.penalty_type,
+            args.penalty_strength
         )
         saved_metrics.update({"cavi_gmm": acc})
         saved_y_obs.update({"cavi_gmm": y_test})
@@ -206,7 +218,12 @@ if __name__ == "__main__":
         saved_decoder_inputs.update({"ks_all": ks_all})
         
         _, y_test, y_pred, _, acc = discrete_decoder(
-            ks_all, cavi_data_loader.behavior, train, test
+            ks_all, 
+            cavi_data_loader.behavior, 
+            train, 
+            test,
+            args.penalty_type,
+            args.penalty_strength
         )
         saved_metrics.update({"ks_all": acc})
         saved_y_obs.update({"ks_all": y_test})
@@ -224,7 +241,12 @@ if __name__ == "__main__":
         saved_decoder_inputs.update({"ks_good": ks_good})
         
         _, y_test, y_pred, _, acc = discrete_decoder(
-            ks_good, cavi_data_loader.behavior, train, test
+            ks_good, 
+            cavi_data_loader.behavior, 
+            train, 
+            test,
+            args.penalty_type,
+            args.penalty_strength
         )
         saved_metrics.update({"ks_good": acc})
         saved_y_obs.update({"ks_good": y_test})

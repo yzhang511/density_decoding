@@ -13,7 +13,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import KFold
 
 from clusterless.utils import NP1DataLoader, ADVIDataLoader, initialize_gmm
-from clusterless.advi import ADVI
+from clusterless.advi import ADVI, train_advi, encode_gmm
 from clusterless.decoder import (
         discrete_decoder, 
         continuous_decoder, 
@@ -60,6 +60,9 @@ if __name__ == "__main__":
                    ])
     g.add_argument("--n_time_bins", default=30, type=int)
     g.add_argument("--relocalize_kilosort", action="store_true")
+    g.add_argument("--penalty_type", default="l2", type=str)
+    g.add_argument("--penalty_strength", default=1e3, type=int)
+    g.add_argument("--sliding_window_size", default=7, type=int)
     
     g = ap.add_argument_group("Training configuration")
     g.add_argument("--batch_size", default=1, type=int)
@@ -132,7 +135,8 @@ if __name__ == "__main__":
         )
         
         try:
-            elbos = advi.train(
+            elbos = train_advi(
+                advi,
                 s = torch.tensor(train_data[:,1:]), 
                 y = torch.tensor(advi_data_loader.behavior), 
                 ks = torch.tensor(train_ks), 
@@ -161,18 +165,28 @@ if __name__ == "__main__":
 
         if args.behavior == "choice":
             y_train, y_test, y_pred, _, acc = discrete_decoder(
-                thresholded, advi_data_loader.behavior, train, test
+                thresholded, 
+                advi_data_loader.behavior, 
+                train, 
+                test, 
+                args.penalty_type,
+                args.penalty_strength
             )
             saved_metrics.update({"thresholded": acc})
             saved_y_obs.update({"thresholded": y_test})
             saved_y_pred.update({"thresholded": y_pred})
         else:
             y_train, _, y_pred = continuous_decoder(
-                thresholded, advi_data_loader.behavior, train, test
+                thresholded, advi_data_loader.behavior, train, test, args.penalty_type
             )
             window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
                 sliding_window_decoder(
-                    thresholded, advi_data_loader.behavior, train, test
+                    thresholded, 
+                    advi_data_loader.behavior, 
+                    train, 
+                    test,
+                    window_size=args.sliding_window_size,
+                    penalty_strength=args.penalty_strength
                 )
             saved_metrics.update({"thresholded": [r2, mse, corr]})
             saved_y_obs.update({"thresholded": window_y_test})
@@ -182,15 +196,20 @@ if __name__ == "__main__":
             
         print("Decode using ADVI + GMM:")
         
-        encoded_pis, encoded_weights = advi.encode_gmm(
-            advi_data_loader.trials, train, test, y_train, y_pred
+        encoded_pis, encoded_weights = encode_gmm(
+            advi, advi_data_loader.trials, train, test, y_train, y_pred
         )
         saved_decoder_inputs.update({"advi_gmm": encoded_weights})
         saved_mixing_props.update({"advi_gmm": encoded_pis})
         
         if args.behavior == "choice":
             _, y_test, y_pred, _, acc = discrete_decoder(
-                encoded_weights, advi_data_loader.behavior, train, test
+                encoded_weights, 
+                advi_data_loader.behavior, 
+                train, 
+                test,
+                args.penalty_type,
+                args.penalty_strength
             )
             saved_metrics.update({"advi_gmm": acc})
             saved_y_obs.update({"advi_gmm": y_test})
@@ -198,7 +217,12 @@ if __name__ == "__main__":
         else:
             window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
                 sliding_window_decoder(
-                    encoded_weights, advi_data_loader.behavior, train, test
+                    encoded_weights, 
+                    advi_data_loader.behavior, 
+                    train, 
+                    test,
+                    window_size=args.sliding_window_size,
+                    penalty_strength=args.penalty_strength
                 )
             saved_metrics.update({"advi_gmm": [r2, mse, corr]})
             saved_y_obs.update({"advi_gmm": window_y_test})
@@ -217,7 +241,12 @@ if __name__ == "__main__":
         
         if args.behavior == "choice":
             _, y_test, y_pred, _, acc = discrete_decoder(
-                ks_all, advi_data_loader.behavior, train, test
+                ks_all, 
+                advi_data_loader.behavior, 
+                train, 
+                test,
+                args.penalty_type,
+                args.penalty_strength
             )
             saved_metrics.update({"ks_all": acc})
             saved_y_obs.update({"ks_all": y_test})
@@ -225,7 +254,12 @@ if __name__ == "__main__":
         else:
             window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
                 sliding_window_decoder(
-                    ks_all, advi_data_loader.behavior, train, test
+                    ks_all, 
+                    advi_data_loader.behavior, 
+                    train, 
+                    test,
+                    window_size=args.sliding_window_size,
+                    penalty_strength=args.penalty_strength
                 )
             saved_metrics.update({"ks_all": [r2, mse, corr]})
             saved_y_obs.update({"ks_all": window_y_test})
@@ -244,7 +278,12 @@ if __name__ == "__main__":
         
         if args.behavior == "choice":
             _, y_test, y_pred, _, acc = discrete_decoder(
-                ks_good, advi_data_loader.behavior, train, test
+                ks_good, 
+                advi_data_loader.behavior, 
+                train, 
+                test,
+                args.penalty_type,
+                args.penalty_strength
             )
             saved_metrics.update({"ks_good": acc})
             saved_y_obs.update({"ks_good": y_test})
@@ -252,7 +291,12 @@ if __name__ == "__main__":
         else:
             window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
                 sliding_window_decoder(
-                    ks_good, advi_data_loader.behavior, train, test
+                    ks_good, 
+                    advi_data_loader.behavior, 
+                    train, 
+                    test,
+                    window_size=args.sliding_window_size,
+                    penalty_strength=args.penalty_strength
                 )
             saved_metrics.update({"ks_good": [r2, mse, corr]})
             saved_y_obs.update({"ks_good": window_y_test})
