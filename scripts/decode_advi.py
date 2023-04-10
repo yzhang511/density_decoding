@@ -20,6 +20,8 @@ from clusterless.decoder import (
         sliding_window, 
         sliding_window_decoder
     )
+from clusterless.viz import plot_decoder_input, plot_behavior_traces
+
 
 def set_seed(value):
     random.seed(value)
@@ -61,7 +63,7 @@ if __name__ == "__main__":
     g.add_argument("--n_time_bins", default=30, type=int)
     g.add_argument("--relocalize_kilosort", action="store_true")
     g.add_argument("--penalty_type", default="l2", type=str)
-    g.add_argument("--penalty_strength", default=1e3, type=int)
+    g.add_argument("--penalty_strength", default=1000, type=int)
     g.add_argument("--sliding_window_size", default=7, type=int)
     
     g = ap.add_argument_group("Training configuration")
@@ -85,12 +87,14 @@ if __name__ == "__main__":
         is_regional = True
 
     if args.relocalize_kilosort:
+        pipeline_type = "relocalize_kilosort"
         if args.kilosort_feature_path != None:
             trials = np1_data_loader.relocalize_kilosort(args.kilosort_feature_path, region=args.brain_region)
         else:
             print("Need path to the relocalized kilosort spike features.")
             sys.exit()
     else:
+        pipeline_type = "our_pipeline"
         trials = np1_data_loader.load_spike_features(region=args.brain_region)
 
     if args.behavior != "stimulus":
@@ -162,6 +166,11 @@ if __name__ == "__main__":
             is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
         saved_decoder_inputs.update({"thresholded": thresholded})
+        fig_path = args.out_path + \
+            f"/{args.pid}/{args.behavior}/{args.brain_region}/{pipeline_type}/plots/"
+        os.makedirs(fig_path, exist_ok=True) 
+        plot_decoder_input(thresholded, 'thresholded', len(spike_train), save_fig=True,
+                           out_path=fig_path+f"thresholded_input_fold{i+1}.png")
 
         if args.behavior == "choice":
             y_train, y_test, y_pred, _, acc = discrete_decoder(
@@ -177,7 +186,7 @@ if __name__ == "__main__":
             saved_y_pred.update({"thresholded": y_pred})
         else:
             y_train, _, y_pred = continuous_decoder(
-                thresholded, advi_data_loader.behavior, train, test, args.penalty_type
+                thresholded, advi_data_loader.behavior, train, test, args.penalty_strength
             )
             window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
                 sliding_window_decoder(
@@ -191,6 +200,9 @@ if __name__ == "__main__":
             saved_metrics.update({"thresholded": [r2, mse, corr]})
             saved_y_obs.update({"thresholded": window_y_test})
             saved_y_pred.update({"thresholded": window_y_pred})
+            prefix, suffix = args.behavior.split("_")
+            plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "thresholded",
+                                 save_fig=True, out_path=fig_path+f"thresholded_traces_fold{i+1}.png")
             
             
             
@@ -201,6 +213,8 @@ if __name__ == "__main__":
         )
         saved_decoder_inputs.update({"advi_gmm": encoded_weights})
         saved_mixing_props.update({"advi_gmm": encoded_pis})
+        plot_decoder_input(encoded_weights, 'ADVI + GMM', len(spike_train), save_fig=True,
+                           out_path=fig_path+f"advi_gmm_input_fold{i+1}.png")
         
         if args.behavior == "choice":
             _, y_test, y_pred, _, acc = discrete_decoder(
@@ -227,6 +241,8 @@ if __name__ == "__main__":
             saved_metrics.update({"advi_gmm": [r2, mse, corr]})
             saved_y_obs.update({"advi_gmm": window_y_test})
             saved_y_pred.update({"advi_gmm": window_y_pred})
+            plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "ADVI + GMM",
+                                 save_fig=True, out_path=fig_path+f"advi_gmm_traces_fold{i+1}.png")
 
             
         print(f'Decode using all Kilosort units:')
@@ -238,6 +254,8 @@ if __name__ == "__main__":
             all_units, is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
         saved_decoder_inputs.update({"ks_all": ks_all})
+        plot_decoder_input(ks_all, 'all ks units', len(all_units), save_fig=True,
+                           out_path=fig_path+f"ks_all_input_fold{i+1}.png")
         
         if args.behavior == "choice":
             _, y_test, y_pred, _, acc = discrete_decoder(
@@ -264,6 +282,8 @@ if __name__ == "__main__":
             saved_metrics.update({"ks_all": [r2, mse, corr]})
             saved_y_obs.update({"ks_all": window_y_test})
             saved_y_pred.update({"ks_all": window_y_pred})
+            plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "KS all units",
+                                 save_fig=True, out_path=fig_path+f"ks_all_traces_fold{i+1}.png")
 
 
         print(f'Decode using good Kilosort units:')
@@ -275,6 +295,8 @@ if __name__ == "__main__":
             good_units, is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
         saved_decoder_inputs.update({"ks_good": ks_good})
+        plot_decoder_input(ks_good, 'good ks units', len(good_units), save_fig=True,
+                           out_path=fig_path+f"ks_good_input_fold{i+1}.png")
         
         if args.behavior == "choice":
             _, y_test, y_pred, _, acc = discrete_decoder(
@@ -301,16 +323,15 @@ if __name__ == "__main__":
             saved_metrics.update({"ks_good": [r2, mse, corr]})
             saved_y_obs.update({"ks_good": window_y_test})
             saved_y_pred.update({"ks_good": window_y_pred})
+            prefix, suffix = args.behavior.split("_")
+            plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "KS good units",
+                                 save_fig=True, out_path=fig_path+f"ks_good_traces_fold{i+1}.png")
            
         # -- save outputs
         save_path = {}
         for res in ["metrics", "y_obs", "y_pred", "decoder_inputs", "mixing_props"]:
-            if args.relocalize_kilosort:
-                save_path.update({res: args.out_path + 
-                                  f"/{args.pid}/{args.behavior}/{args.brain_region}/relocalize_kilosort/{res}/"})
-            else:
-                save_path.update({res: args.out_path + 
-                                  f"/{args.pid}/{args.behavior}/{args.brain_region}/our_pipeline/{res}/"})
+            save_path.update({res: args.out_path + 
+                              f"/{args.pid}/{args.behavior}/{args.brain_region}/{pipeline_type}/{res}/"})
             os.makedirs(save_path[res], exist_ok=True) 
             
         np.save(save_path["metrics"] + f"fold{i+1}.npy", saved_metrics)

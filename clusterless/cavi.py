@@ -3,6 +3,7 @@ import torch
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import accuracy_score, roc_auc_score
+from clusterless.viz import plot_decoder_input
 
 
 def safe_log(x, minval=1e-10):

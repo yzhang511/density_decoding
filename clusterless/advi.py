@@ -167,8 +167,8 @@ def encode_gmm(advi, data, train, test, y_train, y_pred):
     encoded_pis: dynamic mixing proportions; (k, c, t) array. 
     encoded_weights: posterior assignment weight matrix from the encoded gmm; (k, c, t) array. 
     '''
-    n_k = len(train) + len(test)
     trial_idx = np.append(train, test)
+    n_k = len(trial_idx) 
     y = np.vstack([y_train, y_pred])
     
     # compute dynamic mixing proportions

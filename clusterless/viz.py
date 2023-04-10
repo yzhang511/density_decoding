@@ -1,14 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-plt.rc('font', size=20)         
-plt.rc('axes', titlesize=20)     
-plt.rc('axes', labelsize=20) 
+plt.rc('font', size=15)         
+plt.rc('axes', titlesize=15)     
+plt.rc('axes', labelsize=15) 
 plt.rc('axes', linewidth=1.5)
-plt.rc('xtick', labelsize=20)   
-plt.rc('ytick', labelsize=20)   
-plt.rc('legend', fontsize=20)   
-plt.rc('figure', titlesize=20)
+plt.rc('xtick', labelsize=15)   
+plt.rc('ytick', labelsize=15)   
+plt.rc('legend', fontsize=15)   
+plt.rc('figure', titlesize=15)
 
 
 def plot_decoder_input(
@@ -60,9 +60,9 @@ def plot_behavior_traces(
                      c='blue', alpha=.6, label=f'{data_type}', linewidth=3)
         axes[i].set_xticks(locs, np.arange(i*9, (i+1)*9)*1.5)
 
-    axes[0].text(-10, 20, f'{behavior_type}')
+    axes[0].set_title(f'{behavior_type}')
     axes[-1].set_xlabel('time (sec)')
-    axes[0].legend(loc='upper left', bbox_to_anchor=(.475, 1.4), ncol=2, fancybox=False, shadow=False, frameon=False)
+    axes[0].legend(loc='upper left', ncol=2, fancybox=False, shadow=False, frameon=False)
     plt.tight_layout()
     
     if save_fig:
