@@ -397,7 +397,7 @@ def encode_gmm(data, lams, means, covs, train, test, y_train, y_pred):
     encoded_weights: posterior assignment weight matrix from the encoded gmm; (k, c, t) array. 
     '''
     trial_idx = np.append(train, test)
-    y = np.vstack([y_train, y_pred])
+    y = np.hstack([y_train, y_pred])
     n_k = len(trial_idx) 
     n_c, n_t = lams.shape[0], lams.shape[1]
     

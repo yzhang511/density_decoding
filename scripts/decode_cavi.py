@@ -15,6 +15,7 @@ from sklearn.model_selection import KFold
 from clusterless.utils import NP1DataLoader, ADVIDataLoader, initialize_gmm
 from clusterless.cavi import CAVI, encode_gmm
 from clusterless.decoder import discrete_decoder 
+from clusterless.viz import plot_decoder_input
 
 def set_seed(value):
     random.seed(value)
@@ -71,12 +72,14 @@ if __name__ == "__main__":
         is_regional = True
 
     if args.relocalize_kilosort:
+        pipeline_type = "relocalize_kilosort"
         if args.kilosort_feature_path != None:
             trials = np1_data_loader.relocalize_kilosort(args.kilosort_feature_path, region=args.brain_region)
         else:
             print("Need path to the relocalized kilosort spike features.")
             sys.exit()
     else:
+        pipeline_type = "our_pipeline"
         trials = np1_data_loader.load_spike_features(region=args.brain_region)
 
     behavior = np1_data_loader.load_behaviors("choice")
@@ -132,19 +135,23 @@ if __name__ == "__main__":
             y = y_train, 
             max_iter = args.max_iter
         )
-    
-        print(f"Decode using CAVI only:")
-        decoded_r, decoded_nu, decoded_mu, decoded_cov, decoded_p, elbo = cavi.decode(
-            s = test_data[:,1:],
-            init_p = init_p, 
-            init_mu = encoded_mu, 
-            init_cov = encoded_cov,
-            init_lam = encoded_lam, 
-            test_ks = test_ks, 
-            test_ids = test, 
-            max_iter = args.max_iter
-        )
-        _, _ = cavi.eval_perf(decoded_nu, cavi_data_loader.behavior[test])
+
+        try:
+            print(f"Decode using CAVI only:")
+            decoded_r, decoded_nu, decoded_mu, decoded_cov, decoded_p, elbo = cavi.decode(
+                s = test_data[:,1:],
+                init_p = init_p, 
+                init_mu = encoded_mu, 
+                init_cov = encoded_cov,
+                init_lam = encoded_lam, 
+                test_ks = test_ks, 
+                test_ids = test, 
+                max_iter = args.max_iter
+            )
+            _, _ = cavi.eval_perf(decoded_nu, cavi_data_loader.behavior[test])
+        except np.linalg.LinAlgError:
+            decoded_mu, decoded_cov = encoded_mu.clone(), encoded_cov.clone()
+            print("Bypass decoding using CAVI only.")
         
         print("Decode using multi-unit thresholding:")
         
@@ -158,6 +165,12 @@ if __name__ == "__main__":
             is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
         saved_decoder_inputs.update({"thresholded": thresholded})
+        fig_path = args.out_path + \
+            f"/{args.pid}/choice/{args.brain_region}/{pipeline_type}/cavi_plots/"
+        os.makedirs(fig_path, exist_ok=True) 
+        plot_decoder_input(thresholded, 'thresholded', len(spike_train), 
+                           display_seconds=False, save_fig=True,
+                           out_path=fig_path+f"thresholded_input_fold{idx+1}.png")
 
         y_train, y_test, y_pred, _, acc = discrete_decoder(
             thresholded, 
@@ -183,7 +196,7 @@ if __name__ == "__main__":
                 train, test, y_train, y_pred
             )
         except np.linalg.LinAlgError:
-            encoded_pis, encoded_weights = cavi.encode_gmm(
+            encoded_pis, encoded_weights = encode_gmm(
                 cavi_data_loader.trials,
                 encoded_lam.numpy(), 
                 gmm.means_, 
@@ -193,6 +206,9 @@ if __name__ == "__main__":
             
         saved_decoder_inputs.update({"cavi_gmm": encoded_weights})
         saved_mixing_props.update({"cavi_gmm": encoded_pis})
+        plot_decoder_input(encoded_weights, 'ADVI + GMM', len(spike_train), 
+                           display_seconds=False, save_fig=True,
+                           out_path=fig_path+f"advi_gmm_input_fold{idx+1}.png")
         
         _, y_test, y_pred, _, acc = discrete_decoder(
             encoded_weights, 
@@ -216,6 +232,9 @@ if __name__ == "__main__":
             all_units, is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
         saved_decoder_inputs.update({"ks_all": ks_all})
+        plot_decoder_input(ks_all, 'all ks units', len(all_units), 
+                           display_seconds=False, save_fig=True,
+                           out_path=fig_path+f"ks_all_input_fold{idx+1}.png")
         
         _, y_test, y_pred, _, acc = discrete_decoder(
             ks_all, 
@@ -239,6 +258,9 @@ if __name__ == "__main__":
             good_units, is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
         saved_decoder_inputs.update({"ks_good": ks_good})
+        plot_decoder_input(ks_good, 'good ks units', len(good_units), 
+                           display_seconds=False, save_fig=True,
+                           out_path=fig_path+f"ks_good_input_fold{idx+1}.png")
         
         _, y_test, y_pred, _, acc = discrete_decoder(
             ks_good, 
@@ -255,12 +277,8 @@ if __name__ == "__main__":
         # -- save outputs
         save_path = {}
         for res in ["metrics", "y_obs", "y_pred", "decoder_inputs", "mixing_props"]:
-            if args.relocalize_kilosort:
-                save_path.update({res: args.out_path + 
-                    f"/{args.pid}/choice/{args.brain_region}/relocalize_kilosort/cavi_{res}/"})
-            else:
-                save_path.update({res: args.out_path + 
-                    f"/{args.pid}/choice/{args.brain_region}/our_pipeline/cavi_{res}/"})
+            save_path.update({res: args.out_path + 
+                f"/{args.pid}/choice/{args.brain_region}/{pipeline_type}/cavi_{res}/"})
             os.makedirs(save_path[res], exist_ok=True) 
             
         np.save(save_path["metrics"] + f"fold{idx+1}.npy", saved_metrics)

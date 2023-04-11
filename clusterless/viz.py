@@ -15,20 +15,25 @@ def plot_decoder_input(
     data,
     data_type,
     n_spikes,
+    display_seconds=True,
     save_fig=False,
     out_path=None
 ):
     plt.figure(figsize=(6.5,5))
     plt.imshow(data.mean(0), aspect='auto', cmap='cubehelix')
-    plt.axvline(x=10, color='orange', linewidth=3, linestyle='--')
-    plt.xticks([0, 10, 20, 29], ['0', '0.5', '1', '1.5'])
+    if display_seconds:
+        plt.axvline(x=10, color='orange', linewidth=3, linestyle='--')
+        plt.xticks([0, 10, 20, 29], ['0', '0.5', '1', '1.5'])
+        plt.xlabel('time (sec)')
+    else:
+        plt.xlabel('time bin')
+        
     cbar = plt.colorbar()
     if data_type != 'ADVI + GMM':
         cbar.ax.set_ylabel('spike count')
     else:
         cbar.ax.set_ylabel('weight')
     plt.title(f'{data_type} ({n_spikes} spikes)')
-    plt.xlabel('time (sec)')
     
     if data_type == 'thresholded':
         plt.ylabel(f'{data.shape[1]} channels')
