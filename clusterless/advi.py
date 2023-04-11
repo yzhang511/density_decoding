@@ -169,7 +169,10 @@ def encode_gmm(advi, data, train, test, y_train, y_pred):
     '''
     trial_idx = np.append(train, test)
     n_k = len(trial_idx) 
-    y = np.vstack([y_train, y_pred])
+    if len(y_train.shape) == 1:
+        y = np.hstack([y_train, y_pred])
+    else:
+        y = np.vstack([y_train, y_pred])
     
     # compute dynamic mixing proportions
     log_lambdas = np.zeros((n_k, advi.n_c, advi.n_t))
