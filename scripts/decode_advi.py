@@ -65,6 +65,7 @@ if __name__ == "__main__":
     g.add_argument("--penalty_type", default="l2", type=str)
     g.add_argument("--penalty_strength", default=1000, type=int)
     g.add_argument("--sliding_window_size", default=7, type=int)
+    g.add_argument("--train_with_motion_energy", action="store_true")
     
     g = ap.add_argument_group("Training configuration")
     g.add_argument("--batch_size", default=1, type=int)
@@ -102,9 +103,13 @@ if __name__ == "__main__":
     else:
         # TO DO: include stimulus later.  
         print("Stimulus decoding is under development.")
-
         
     # -- prepare data for model training
+    if args.train_with_motion_energy:
+        encoding_behavior = np1_data_loader.load_behaviors("motion_energy")
+    else:
+        encoding_behavior = behavior.copy()
+        
     advi_data_loader = ADVIDataLoader(
                              data = trials, 
                              behavior = behavior, 
@@ -142,7 +147,7 @@ if __name__ == "__main__":
             elbos = train_advi(
                 advi,
                 s = torch.tensor(train_data[:,1:]), 
-                y = torch.tensor(advi_data_loader.behavior), 
+                y = torch.tensor(encoding_behavior), 
                 ks = torch.tensor(train_ks), 
                 ts = torch.tensor(train_ts), 
                 batch_ids = list(zip(*(iter(train),) * args.batch_size)), 
@@ -179,12 +184,16 @@ if __name__ == "__main__":
                 train, 
                 test, 
                 args.penalty_type,
-                args.penalty_strength
+                args.penalty_strength,
             )
             saved_metrics.update({"thresholded": acc})
             saved_y_obs.update({"thresholded": y_test})
             saved_y_pred.update({"thresholded": y_pred})
         else:
+            if args.train_with_motion_energy:
+                enc_behave_train, _, enc_behave_pred = continuous_decoder(
+                    thresholded, encoding_behavior, train, test, args.penalty_strength
+                )
             y_train, _, y_pred = continuous_decoder(
                 thresholded, advi_data_loader.behavior, train, test, args.penalty_strength
             )
@@ -203,7 +212,6 @@ if __name__ == "__main__":
             prefix, suffix = args.behavior.split("_")
             plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "thresholded",
                                  save_fig=True, out_path=fig_path+f"thresholded_traces_fold{i+1}.png")
-            
             
             
         print("Decode using ADVI + GMM:")
@@ -243,6 +251,37 @@ if __name__ == "__main__":
             saved_y_pred.update({"advi_gmm": window_y_pred})
             plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "ADVI + GMM",
                                  save_fig=True, out_path=fig_path+f"advi_gmm_traces_fold{i+1}.png")
+
+            
+        if args.train_with_motion_energy:
+            print("Decode using ADVI + GMM (train with motion energy):")
+        
+            encoded_pis, encoded_weights = encode_gmm(
+                advi, advi_data_loader.trials, train, test, enc_behave_train, enc_behave_pred
+            )
+            saved_decoder_inputs.update({"advi_gmm_me": encoded_weights})
+            saved_mixing_props.update({"advi_gmm_me": encoded_pis})
+            plot_decoder_input(encoded_weights, 'ADVI + GMM', len(spike_train), save_fig=True,
+                               out_path=fig_path+f"advi_gmm_me_input_fold{i+1}.png")
+
+
+            if args.behavior == "choice":
+                print("Cannot train ADVI with motion energy and then decode choice.")
+            else:
+                window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
+                    sliding_window_decoder(
+                        encoded_weights, 
+                        advi_data_loader.behavior, 
+                        train, 
+                        test,
+                        window_size=args.sliding_window_size,
+                        penalty_strength=args.penalty_strength
+                    )
+                saved_metrics.update({"advi_gmm_me": [r2, mse, corr]})
+                saved_y_obs.update({"advi_gmm_me": window_y_test})
+                saved_y_pred.update({"advi_gmm_me": window_y_pred})
+                plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "ADVI + GMM",
+                                     save_fig=True, out_path=fig_path+f"advi_gmm_me_traces_fold{i+1}.png")
 
             
         print(f'Decode using all Kilosort units:')
