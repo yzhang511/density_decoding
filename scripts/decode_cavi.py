@@ -70,6 +70,8 @@ if __name__ == "__main__":
     
     if args.brain_region != "all":
         is_regional = True
+    else:
+        is_regional = False
 
     if args.relocalize_kilosort:
         pipeline_type = "relocalize_kilosort"
