@@ -34,11 +34,17 @@ class NP1DataLoader():
         
         # load meta data
         stim_on_times = self.one.load_object(self.eid, 'trials', collection='alf')['stimOn_times']
-        active_trials = np.load(f'{behavior_path}/{self.eid}_trials.npy')
+        if behavior_path == None:
+            self.behave_dict, active_trials = featurize_behavior(self.eid, t_before=0.5, t_after=1.0, bin_size=0.05)
+        else:
+            active_trials = np.load(f'{behavior_path}/{self.eid}_trials.npy')
         self.stim_on_times = stim_on_times[active_trials]
         self.n_trials = self.stim_on_times.shape[0]
         print(f'First trial stimulus onset time: {self.stim_on_times[0]:.2f} sec')
         print(f'Last trial stimulus onset time: {self.stim_on_times[-1]:.2f} sec') 
+        
+    def check_available_brain_regions(self):
+        print(np.unique(self.clusters['acronym']))
         
         
     def _partition_brain_regions(self, data, region, partition_units, partition_type=None, good_units=[]):
@@ -141,21 +147,27 @@ class NP1DataLoader():
     ):
         
         if featurize:
-            choice, motion_energy, wheel_velocity, paw_speed, pupil_diameter = \
-                featurize_behavior(eid, t_before=0.5, t_after=1.0, bin_size=0.05)
-            wheel_speed = np.abs(wheel_velocity)
+            choice = self.behave_dict['choice']
+            motion_energy = self.behave_dict['motion_energy']
+            wheel_velocity = self.behave_dict['wheel_velocity']
+            paw_speed = self.behave_dict['paw_speed']
+            pupil_diameter = self.behave_dict['pupil_diameter']
         else:
             # TO DO: Use dict to index behaviors instead of hard-coding.
             behave_dict = np.load(f'{self.behavior_path}/{self.eid}_feature.npy')
+            
             choices = behave_dict[:,:,:,23:25].sum(2)[0,:,:]
             print('choice left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), 
                                                      (choices.sum(0)[1]/choices.shape[0])))
             choices = choices.argmax(1)
+            
             rewards = behave_dict[:,:,:,25:27].sum(2)[0,:,:]
             print('reward wrong: %.3f, correct: %.3f'%((rewards.sum(0)[0]/rewards.shape[0]), 
                                                        (rewards.sum(0)[1]/rewards.shape[0])))
             rewards = rewards.argmax(1)
+            
             priors = behave_dict[0,:,0,28:29]
+            
             stimuli = behave_dict[:,:,:,19:21].sum(2)[0,:,:]
             print('stimulus left: %.3f, right: %.3f'%((np.sum(stimuli.argmax(1)==1)/stimuli.shape[0]), 
                                                       (np.sum(stimuli.argmax(1)==0)/stimuli.shape[0])))
@@ -172,16 +184,16 @@ class NP1DataLoader():
             enc = OneHotEncoder(handle_unknown='ignore')
             enc.fit(transformed_stimuli.reshape(-1,1))
             one_hot_stimuli = enc.transform(transformed_stimuli.reshape(-1,1)).toarray()
+            
             motion_energy = behave_dict[0,:,:,18]
             wheel_velocity = behave_dict[0,:,:,27]
-            wheel_speed = np.abs(wheel_velocity)
             paw_speed = behave_dict[0,:,:,15]
             pupil_diameter = behave_dict[0,:,:,17]
         
         if behavior_type == 'choice':
-            return choices.argmax(1)
+            return choices
         # elif behavior_type == 'reward':
-        #     return rewards.argmax(1)
+        #     return rewards
         # elif behavior_type == 'prior':
         #     return priors
         # elif behavior_type == 'stimulus':
@@ -191,6 +203,7 @@ class NP1DataLoader():
         elif behavior_type == 'wheel_velocity':
             return wheel_velocity
         elif behavior_type == 'wheel_speed':
+            wheel_speed = np.abs(wheel_velocity)
             return wheel_speed
         elif behavior_type == 'paw_speed':
             return paw_speed

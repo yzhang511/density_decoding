@@ -128,5 +128,12 @@ def featurize_behavior(eid, t_before=0.5, t_after=1.0, bin_size=0.05):
     # pupil diameter
     bin_pup_dia, _ = bin_norm(left_dlc['times'], ref_event, t_before, t_after, bin_size, weights=pupil_diameter)
     
-    return choice, bin_left_me, bin_vel, bin_paw_speed, bin_pup_dia
+    behave_dict = {}
+    behave_dict.update({'choice': choice})
+    behave_dict.update({'motion_energy': bin_left_me})
+    behave_dict.update({'wheel_velocity': bin_vel})
+    behave_dict.update({'paw_speed': bin_paw_speed})
+    behave_dict.update({'pupil_diameter': bin_pup_dia})
+    
+    return behave_dict, trial_idx
 
