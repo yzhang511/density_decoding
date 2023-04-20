@@ -36,22 +36,18 @@ if __name__ == "__main__":
     g = ap.add_argument_group("Data input/output")
     g.add_argument("--pid")
     g.add_argument("--ephys_path")
-    g.add_argument("--behavior_path")
+    g.add_argument("--behavior_path", default=None)
     g.add_argument("--geom_path")
     g.add_argument("--out_path")
     g.add_argument("--kilosort_feature_path")
     
     g = ap.add_argument_group("Decoding configuration")
-    g.add_argument("--brain_region", 
-                   default="all", 
-                   type=str, 
-                   choices=[
-                       "all", "po", "lp", "dg", "ca1", "vis"
-                   ])
+    g.add_argument("--brain_region", default="all", type=str)
     g.add_argument("--n_time_bins", default=10, type=int)
     g.add_argument("--relocalize_kilosort", action="store_true")
     g.add_argument("--penalty_type", default="l2", type=str)
     g.add_argument("--penalty_strength", default=1e3, type=int)
+    g.add_argument("--featurize_behavior", action="store_true")
     
     g = ap.add_argument_group("Training configuration")
     g.add_argument("--max_iter", default=3, type=int)
@@ -83,8 +79,11 @@ if __name__ == "__main__":
     else:
         pipeline_type = "our_pipeline"
         trials = np1_data_loader.load_spike_features(region=args.brain_region)
+        
+    n_spikes = np.concatenate(trials).shape[0]
+    print(f"# spikes available for decoding is {n_spikes}.")
 
-    behavior = np1_data_loader.load_behaviors("choice")
+    behavior = np1_data_loader.load_behaviors("choice", featurize=args.featurize_behavior)
         
     # -- prepare data for model training
     cavi_data_loader = ADVIDataLoader(
@@ -159,8 +158,9 @@ if __name__ == "__main__":
         
         spike_train = np.concatenate(trials)
         spike_times, spike_channels = spike_train[:,0], spike_train[:,1]
-        spike_labels = gmm.predict(spike_train[:,2:])
-        spike_probs = gmm.predict_proba(spike_train[:,2:])
+        # (spike_labels, spike_probs) needed for vanilla gmm
+        # spike_labels = gmm.predict(spike_train[:,2:])
+        # spike_probs = gmm.predict_proba(spike_train[:,2:])
         
         thresholded = np1_data_loader.prepare_decoder_input(
             np.c_[spike_times, spike_channels],
