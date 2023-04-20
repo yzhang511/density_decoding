@@ -329,9 +329,14 @@ if __name__ == "__main__":
 
         print(f'Decode using good Kilosort units:')
 
-        good_units = np.concatenate(
-            np1_data_loader.load_good_units(region=args.brain_region)
-        )
+        try:
+            good_units = np.concatenate(
+                np1_data_loader.load_good_units(region=args.brain_region)
+            )
+        except ValueError:
+            print("Cannot decode since no good units found.")
+            continue
+            
         ks_good = np1_data_loader.prepare_decoder_input(
             good_units, is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
