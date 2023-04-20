@@ -240,15 +240,19 @@ class NP1DataLoader():
                 mask = np.logical_and(spike_train[:,0] >= self.stim_on_times[i] - 0.5,
                                       spike_train[:,0] <= self.stim_on_times[i] + 1.0)
                 trial = spike_train[mask]
-                trial[:,0] = trial[:,0] - trial[:,0].min()
-                t_bins = np.digitize(trial[:,0], t_binning, right=False)-1
-                t_bins_lst = []
-                for t in range(n_t_bins):
-                    t_bin = trial[t_bins==t, 2:]
-                    gmm_weights_lst = np.zeros(n_gaussians)
-                    for k in range(n_gaussians):
-                        gmm_weights_lst[k] = np.sum(t_bin[:,k])
-                    t_bins_lst.append(gmm_weights_lst)
+                try:
+                    trial[:,0] = trial[:,0] - trial[:,0].min()
+                    t_bins = np.digitize(trial[:,0], t_binning, right=False)-1
+                    t_bins_lst = []
+                    for t in range(n_t_bins):
+                        t_bin = trial[t_bins==t, 2:]
+                        gmm_weights_lst = np.zeros(n_gaussians)
+                        for k in range(n_gaussians):
+                            gmm_weights_lst[k] = np.sum(t_bin[:,k])
+                        t_bins_lst.append(gmm_weights_lst)
+                except ValueError:
+                    print(f'No spikes found in trial {i}.')
+                    t_bins_lst = [np.zeros(n_gaussians) for t in range(n_t_bins)]
                 decoder_input.append(np.array(t_bins_lst))
             decoder_input = np.array(decoder_input).transpose(0,2,1)
         else:
@@ -266,11 +270,14 @@ class NP1DataLoader():
                 mask = np.logical_and(spike_train[:,0] >= self.stim_on_times[i] - 0.5,
                                       spike_train[:,0] <= self.stim_on_times[i] + 1.0)
                 trial = spike_train[mask]
-                trial[:,0] = trial[:,0] - trial[:,0].min()
-                units = trial[:,1].astype(int)
-                t_bins = np.digitize(trial[:,0], t_binning, right=False)-1
                 spike_count = np.zeros([n_units, n_t_bins])
-                np.add.at(spike_count, (units, t_bins), 1) 
+                try:
+                    trial[:,0] = trial[:,0] - trial[:,0].min()
+                    units = trial[:,1].astype(int)
+                    t_bins = np.digitize(trial[:,0], t_binning, right=False)-1
+                    np.add.at(spike_count, (units, t_bins), 1) 
+                except ValueError:
+                    print(f'No spikes found in trial {i}.')
                 decoder_input.append(spike_count)
             decoder_input = np.array(decoder_input)
         return decoder_input
@@ -297,15 +304,20 @@ class ADVIDataLoader():
         self.trials = []; self.trial_ids = []; self.time_ids = []
         for k in range(self.n_trials):
             trial = data[k].copy()
-            trial[:,0] = trial[:,0] - trial[:,0].min()
-            t_bins = np.digitize(trial[:,0], self.t_binning, right = False) - 1
-            t_bin_lst = []
-            for t in range(self.n_t_bins):
-                t_bin = trial[t_bins == t,1:]
-                self.trial_ids.append(np.ones_like(t_bin[:,0]) * k)
-                self.time_ids.append(np.ones_like(t_bin[:,0]) * t)
-                t_bin_lst.append(t_bin)
-            self.trials.append(t_bin_lst)
+            try:
+                trial[:,0] = trial[:,0] - trial[:,0].min()
+                t_bins = np.digitize(trial[:,0], self.t_binning, right = False) - 1
+                t_bin_lst = []
+                for t in range(self.n_t_bins):
+                    t_bin = trial[t_bins == t,1:]
+                    self.trial_ids.append(np.ones_like(t_bin[:,0]) * k)
+                    self.time_ids.append(np.ones_like(t_bin[:,0]) * t)
+                    t_bin_lst.append(t_bin)
+                self.trials.append(t_bin_lst)
+            except ValueError:
+                print(f'No spikes found in trial {k}.')
+                # TO DO: Need a better way to handle empty trials
+                self.trials.append([ [] for t in range(self.n_t_bins) ])
     
     
     def split_train_test(self, train_ids, test_ids):
