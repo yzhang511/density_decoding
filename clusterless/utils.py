@@ -147,7 +147,7 @@ class NP1DataLoader():
     ):
         
         if featurize:
-            choice = self.behave_dict['choice']
+            choices = self.behave_dict['choice']
             motion_energy = self.behave_dict['motion_energy']
             wheel_velocity = self.behave_dict['wheel_velocity']
             paw_speed = self.behave_dict['paw_speed']
