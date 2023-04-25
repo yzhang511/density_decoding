@@ -14,9 +14,8 @@ from clusterless.preprocess import featurize_behavior
 
 
 class NP1DataLoader():
-    def __init__(self, probe_id, geom_path, ephys_path, behavior_path):
+    def __init__(self, probe_id, ephys_path, behavior_path):
         self.pid = probe_id
-        self.geom = np.load(geom_path)
         self.ephys_path = ephys_path
         self.behavior_path = behavior_path
         

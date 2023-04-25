@@ -37,7 +37,6 @@ if __name__ == "__main__":
     g.add_argument("--pid")
     g.add_argument("--ephys_path")
     g.add_argument("--behavior_path", default=None)
-    g.add_argument("--geom_path")
     g.add_argument("--out_path")
     g.add_argument("--kilosort_feature_path")
     
@@ -57,7 +56,6 @@ if __name__ == "__main__":
     # -- load data 
     np1_data_loader = NP1DataLoader(
         probe_id = args.pid, 
-        geom_path = args.geom_path, 
         ephys_path = args.ephys_path, 
         behavior_path = args.behavior_path
     )
