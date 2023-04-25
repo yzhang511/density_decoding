@@ -285,7 +285,7 @@ class NP1DataLoader():
                   
                   
 class ADVIDataLoader():
-    def __init__(self, data, behavior, n_t_bins=30):
+    def __init__(self, data, behavior, n_t_bins=30, t_start=0, t_end=1.5):
         '''
         Inputs:
         -------
@@ -297,7 +297,7 @@ class ADVIDataLoader():
         self.behavior = behavior
         self.n_trials = len(data)
         self.n_t_bins = n_t_bins
-        self.t_binning = np.arange(0, 1.5, step = (1.5 - 0) / n_t_bins)
+        self.t_binning = np.arange(t_start, t_end, step = (t_end - t_start)/n_t_bins)
         
         # generate trial and time indices needed for model training
         self.trials = []; self.trial_ids = []; self.time_ids = []
@@ -375,7 +375,7 @@ class ADVIDataLoader():
     
                   
     
-def initialize_gmm(spike_features):
+def initialize_gmm(spike_features, verbose=False):
     '''
     Fit a gmm to initialize the CAVI/ADVI model. 
     For spikes detected on each channel:
@@ -411,7 +411,8 @@ def initialize_gmm(spike_features):
             isosplit_labels = np.zeros_like(sub_features[:,0])
 
         n_splits = np.unique(isosplit_labels).shape[0]
-        # print(f'{int(channel)}-th channel is split into {n_splits} modes')
+        if verbose:
+            print(f'{int(channel)}-th channel is split into {n_splits} modes')
 
         for label in np.arange(n_splits):
             mask = (isosplit_labels == label)
