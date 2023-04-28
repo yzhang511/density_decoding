@@ -147,7 +147,7 @@ if __name__ == "__main__":
         saved_decoder_inputs.update({"thresholded": thresholded})
         fig_path = args.out_path + f"/np1_nhp/{args.behavior}/plots/"
         os.makedirs(fig_path, exist_ok=True) 
-        plot_decoder_input(thresholded, 'thresholded', len(spike_train), save_fig=True,
+        plot_decoder_input(thresholded, 'thresholded', n_spikes, save_fig=True,
                            out_path=fig_path+f"thresholded_input_fold{i+1}.png")
 
         y_train, _, y_pred = continuous_decoder(
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         )
         saved_decoder_inputs.update({"advi_gmm": encoded_weights})
         saved_mixing_props.update({"advi_gmm": encoded_pis})
-        plot_decoder_input(encoded_weights, 'ADVI + GMM', len(spike_train), save_fig=True,
+        plot_decoder_input(encoded_weights, 'ADVI + GMM', n_spikes, save_fig=True,
                            out_path=fig_path+f"advi_gmm_input_fold{i+1}.png")
         
         window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
