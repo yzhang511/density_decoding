@@ -13,7 +13,7 @@ import isosplit
 from clusterless.preprocess import featurize_behavior
 
 
-class NP1DataLoader():
+class IBLDataLoader():
     def __init__(self, probe_id, ephys_path, behavior_path):
         self.pid = probe_id
         self.ephys_path = ephys_path
@@ -282,8 +282,74 @@ class NP1DataLoader():
         return decoder_input
     
     
+class NP1NHPDataLoader():
+    def __init__(self, ephys_data, behavior, trial_times, n_t_bins=30, t_start=0, t_end=9.85):
+        '''
+        Inputs:
+        -------
+        ephys_data:
+        behavior_data:
+        trial_times:
+        '''
+        self.ephys_data = ephys_data
+        self.behavior = behavior
+        self.n_trials = len(trial_times)
+        self.n_t_bins = n_t_bins
+        self.t_binning = np.arange(t_start, t_end, step=(t_end - t_start)/n_t_bins)
+        self.ephys_data = ephys_data
+        self.behavior = behavior
+        self.trial_times = trial_times
+        
+    def partition_into_trials(self, active_trials):
+        assert active_trials is not None
+        trials = []
+        for k in active_trials:
+            mask = np.logical_and(self.ephys_data[:,0] >= self.trial_times[k].item().min(),   
+                                  self.ephys_data[:,0] <= self.trial_times[k].item().max())
+            trials.append(self.ephys_data[mask])
+        return trials
+    
+    def bin_behaviors(self):
+        # time binning
+        n_dim = self.behavior[0].item().shape[0]
+        bin_behaviors = np.empty((self.n_trials, self.n_t_bins, n_dim))
+        for k in range(self.n_trials):
+            trial = self.trial_times[k].item() - self.trial_times[k].item().min()
+            t_bins = np.digitize(trial, self.t_binning, right=False).flatten()-1
+            for t in range(self.n_t_bins):
+                bin_behaviors[k, t] = self.behavior[k].item().T[t_bins == t].mean(0)
+                
+        # filter out trials with missing values
+        active_x_trials = np.argwhere(np.sum(np.isnan(bin_behaviors[:,:,0]), 1) == 0).squeeze()[:-1]
+        active_y_trials = np.argwhere(np.sum(np.isnan(bin_behaviors[:,:,1]), 1) == 0).squeeze()[:-1]
+        active_z_trials = np.argwhere(np.sum(np.isnan(bin_behaviors[:,:,-1]), 1) == 0).squeeze()[:-1]
+        active_trials = set(active_x_trials) & set(active_y_trials) & set(active_z_trials)
+        return bin_behaviors, list(active_trials)
+    
+    def prepare_decoder_input(self, trials, active_trials):
+        spike_times, spike_units = np.concatenate(trials)[:,[0,1]].T
+        spike_train = np.c_[spike_times, spike_units]
+
+        thresholded = []
+        n_units = spike_units.max().astype(int)+1
+        for k in active_trials:
+            mask = np.logical_and(spike_train[:,0] >= self.trial_times[k].item().min(),
+                                  spike_train[:,0] <= self.trial_times[k].item().max())
+            trial = spike_train[mask]
+            spike_count = np.zeros([n_units, self.n_t_bins])
+            try:
+                trial[:,0] = trial[:,0] - trial[:,0].min()
+                units = trial[:,1].astype(int)
+                t_bins = np.digitize(trial[:,0], self.t_binning, right=False)-1
+                np.add.at(spike_count, (units, t_bins), 1) 
+            except ValueError:
+                print(f'No spikes found in trial {i}.')
+            thresholded.append(spike_count)
+        thresholded = np.array(thresholded)
+        return thresholded
+        
                   
-                  
+                
 class ADVIDataLoader():
     def __init__(self, data, behavior, n_t_bins=30, t_start=0, t_end=1.5):
         '''
@@ -375,7 +441,7 @@ class ADVIDataLoader():
     
                   
     
-def initialize_gmm(spike_features, verbose=False):
+def initialize_gmm(spike_features, verbose=False, split=True):
     '''
     Fit a gmm to initialize the CAVI/ADVI model. 
     For spikes detected on each channel:
@@ -391,39 +457,56 @@ def initialize_gmm(spike_features, verbose=False):
     --------
     gmm: GMM object return by sklearn.mixture.GaussianMixture().
     '''
+    
     sub_weights = []; sub_means = []; sub_covs = []
+    
     for channel in np.unique(spike_features[:,0]):
+        
         sub_features = spike_features[spike_features[:,0]==channel,1:]
-        if sub_features.shape[0] > 10:
-            try:
-                isosplit_labels = isosplit.isosplit(sub_features.T, 
-                                                    K_init = 20, 
-                                                    min_cluster_size = 10,
-                                                    whiten_cluster_pairs = 1, 
-                                                    refine_clusters = 1)
-            except AssertionError:
+        
+        if split:
+            if sub_features.shape[0] > 10:
+                try:
+                    isosplit_labels = isosplit.isosplit(sub_features.T, 
+                                                        K_init = 20, 
+                                                        min_cluster_size = 10,
+                                                        whiten_cluster_pairs = 1, 
+                                                        refine_clusters = 1)
+                except AssertionError:
+                    continue
+                except ValueError:
+                    continue
+            elif sub_features.shape[0] < 2:
                 continue
-            except ValueError:
-                continue
-        elif sub_features.shape[0] < 2:
-            continue
+            else:
+                isosplit_labels = np.zeros_like(sub_features[:,0])
+
+            n_splits = np.unique(isosplit_labels).shape[0]
+            if verbose:
+                print(f'Channel {int(channel)} is split into {n_splits} modes ..')
+
+            for label in np.arange(n_splits):
+                mask = (isosplit_labels == label)
+                sub_gmm = GaussianMixture(n_components=1, 
+                                          covariance_type='full',
+                                          init_params='k-means++')
+                sub_gmm.fit(sub_features[mask])
+                sub_labels = sub_gmm.predict(sub_features[mask])
+                sub_weights.append(len(sub_labels)/len(spike_features))
+                sub_means.append(sub_gmm.means_)
+                sub_covs.append(sub_gmm.covariances_)
         else:
-            isosplit_labels = np.zeros_like(sub_features[:,0])
-
-        n_splits = np.unique(isosplit_labels).shape[0]
-        if verbose:
-            print(f'{int(channel)}-th channel is split into {n_splits} modes')
-
-        for label in np.arange(n_splits):
-            mask = (isosplit_labels == label)
             sub_gmm = GaussianMixture(n_components=1, 
                                       covariance_type='full',
                                       init_params='k-means++')
-            sub_gmm.fit(sub_features[mask])
-            sub_labels = sub_gmm.predict(sub_features[mask])
+            sub_gmm.fit(sub_features)
+            sub_labels = sub_gmm.predict(sub_features)
             sub_weights.append(len(sub_labels)/len(spike_features))
             sub_means.append(sub_gmm.means_)
             sub_covs.append(sub_gmm.covariances_)
+
+            if verbose:
+                print(f'Fitting channel {int(channel)} ..')
 
     # aggregate the gmm's fitted to each channel into a gmm for all channels
     gmm = GaussianMixture(n_components=len(np.hstack(sub_weights)), 

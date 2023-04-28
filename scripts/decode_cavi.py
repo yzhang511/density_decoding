@@ -12,7 +12,7 @@ import torch
 from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import KFold
 
-from clusterless.utils import NP1DataLoader, ADVIDataLoader, initialize_gmm
+from clusterless.utils import IBLDataLoader, ADVIDataLoader, initialize_gmm
 from clusterless.cavi import CAVI, encode_gmm
 from clusterless.decoder import discrete_decoder 
 from clusterless.viz import plot_decoder_input
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     args = ap.parse_args()
     
     # -- load data 
-    np1_data_loader = NP1DataLoader(
+    ibl_data_loader = IBLDataLoader(
         probe_id = args.pid, 
         ephys_path = args.ephys_path, 
         behavior_path = args.behavior_path
@@ -70,18 +70,18 @@ if __name__ == "__main__":
     if args.relocalize_kilosort:
         pipeline_type = "relocalize_kilosort"
         if args.kilosort_feature_path != None:
-            trials = np1_data_loader.relocalize_kilosort(args.kilosort_feature_path, region=args.brain_region)
+            trials = ibl_data_loader.relocalize_kilosort(args.kilosort_feature_path, region=args.brain_region)
         else:
             print("Need path to the relocalized kilosort spike features.")
             sys.exit()
     else:
         pipeline_type = "our_pipeline"
-        trials = np1_data_loader.load_spike_features(region=args.brain_region)
+        trials = ibl_data_loader.load_spike_features(region=args.brain_region)
         
     n_spikes = np.concatenate(trials).shape[0]
     print(f"# spikes available for decoding is {n_spikes}.")
 
-    behavior = np1_data_loader.load_behaviors("choice", featurize=args.featurize_behavior)
+    behavior = ibl_data_loader.load_behaviors("choice", featurize=args.featurize_behavior)
         
     # -- prepare data for model training
     cavi_data_loader = ADVIDataLoader(
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         # spike_labels = gmm.predict(spike_train[:,2:])
         # spike_probs = gmm.predict_proba(spike_train[:,2:])
         
-        thresholded = np1_data_loader.prepare_decoder_input(
+        thresholded = ibl_data_loader.prepare_decoder_input(
             np.c_[spike_times, spike_channels],
             is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
@@ -226,9 +226,9 @@ if __name__ == "__main__":
         print(f'Decode using all Kilosort units:')
 
         all_units = np.concatenate(
-            np1_data_loader.load_all_units(region=args.brain_region)
+            ibl_data_loader.load_all_units(region=args.brain_region)
         )
-        ks_all = np1_data_loader.prepare_decoder_input(
+        ks_all = ibl_data_loader.prepare_decoder_input(
             all_units, is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
         saved_decoder_inputs.update({"ks_all": ks_all})
@@ -253,13 +253,13 @@ if __name__ == "__main__":
 
         try:
             good_units = np.concatenate(
-                np1_data_loader.load_good_units(region=args.brain_region)
+                ibl_data_loader.load_good_units(region=args.brain_region)
             )
         except ValueError:
             print("Cannot decode since no good units found.")
             continue
             
-        ks_good = np1_data_loader.prepare_decoder_input(
+        ks_good = ibl_data_loader.prepare_decoder_input(
             good_units, is_gmm=False, n_t_bins=n_t, regional=is_regional
         )
         saved_decoder_inputs.update({"ks_good": ks_good})
