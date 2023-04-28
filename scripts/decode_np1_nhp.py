@@ -165,8 +165,7 @@ if __name__ == "__main__":
         saved_metrics.update({"thresholded": [r2, mse, corr]})
         saved_y_obs.update({"thresholded": window_y_test})
         saved_y_pred.update({"thresholded": window_y_pred})
-        prefix, suffix = args.behavior.split("_")
-        plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "thresholded",
+        plot_behavior_traces(window_y_test, window_y_pred, args.behavior, "thresholded",
                              save_fig=True, out_path=fig_path+f"thresholded_traces_fold{i+1}.png")
             
             
@@ -192,7 +191,7 @@ if __name__ == "__main__":
         saved_metrics.update({"advi_gmm": [r2, mse, corr]})
         saved_y_obs.update({"advi_gmm": window_y_test})
         saved_y_pred.update({"advi_gmm": window_y_pred})
-        plot_behavior_traces(window_y_test, window_y_pred, prefix + " " + suffix, "ADVI + GMM",
+        plot_behavior_traces(window_y_test, window_y_pred, args.behavior, "ADVI + GMM",
                              save_fig=True, out_path=fig_path+f"advi_gmm_traces_fold{i+1}.png")
 
         # -- save outputs
