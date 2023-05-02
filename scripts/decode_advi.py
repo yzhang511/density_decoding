@@ -51,7 +51,8 @@ if __name__ == "__main__":
                    default="choice", 
                    type=str, 
                    choices=[
-                       "choice", "motion_energy", "wheel_speed", "wheel_velocity"
+                       "choice", "motion_energy", "wheel_speed", "wheel_velocity",
+                       "paw_speed", "pupil_diameter"
                    ])
     g.add_argument("--brain_region", default="all", type=str)
     g.add_argument("--n_time_bins", default=30, type=int)

@@ -70,6 +70,11 @@ if __name__ == "__main__":
     ephys_data[:,0] = ephys_data[:,0] / args.sampling_freq
     trial_times = loadmat(args.trial_times_path)["simTime"]
     behavior = loadmat(args.behavior_path)["force"]
+    
+    # -- load ks data
+    ks_spike_times = loadmat(args.ephys_path + "ks_spike_times.mat")["ks_spike_times"].flatten()
+    ks_spike_times = ks_spike_times / args.sampling_freq
+    ks_spike_clusters = loadmat(args.ephys_path + "ks_spike_clusters.mat")["ks_spike_clusters"].flatten()
 
     np1_nhp_loader = NP1NHPDataLoader(ephys_data, behavior, trial_times, 
                                       n_t_bins=args.n_time_bins, t_start=args.t_start, t_end=args.t_end)
@@ -106,7 +111,7 @@ if __name__ == "__main__":
     # -- k-fold CV
     kf = KFold(n_splits=5, shuffle=True, random_state=seed)
     for i, (train, test) in enumerate(kf.split(advi_data_loader.behavior)):
-
+        
         print(f"Fold {i+1} / 5:")
         saved_metrics, saved_y_obs, saved_y_pred = {}, {}, {}
         saved_decoder_inputs, saved_mixing_props = {}, {}
@@ -143,7 +148,8 @@ if __name__ == "__main__":
         
         print("Decode using multi-unit thresholding:")
         
-        thresholded = np1_nhp_loader.prepare_decoder_input(trials, active_trials)
+        spike_times, spike_units = spike_index.T
+        thresholded = np1_nhp_loader.prepare_decoder_input(spike_times, spike_units, active_trials)
         saved_decoder_inputs.update({"thresholded": thresholded})
         fig_path = args.out_path + f"/np1_nhp/{args.behavior}/plots/"
         os.makedirs(fig_path, exist_ok=True) 
@@ -193,6 +199,31 @@ if __name__ == "__main__":
         saved_y_pred.update({"advi_gmm": window_y_pred})
         plot_behavior_traces(window_y_test, window_y_pred, args.behavior, "ADVI + GMM",
                              save_fig=True, out_path=fig_path+f"advi_gmm_traces_fold{i+1}.png")
+        
+        
+        ks_all = np1_nhp_loader.prepare_decoder_input(ks_spike_times, ks_spike_clusters, active_trials)
+        saved_decoder_inputs.update({"ks_all": ks_all})
+        plot_decoder_input(ks_all, 'ks_all', len(ks_spike_times), save_fig=True,
+                           out_path=fig_path+f"ks_all_input_fold{i+1}.png")
+
+        y_train, _, y_pred = continuous_decoder(
+            ks_all, advi_data_loader.behavior, train, test, args.penalty_strength
+        )
+        window_y_train, window_y_test, window_y_pred, r2, mse, corr = \
+            sliding_window_decoder(
+                ks_all, 
+                advi_data_loader.behavior, 
+                train, 
+                test,
+                window_size=args.sliding_window_size,
+                penalty_strength=args.penalty_strength
+            )
+        saved_metrics.update({"ks_all": [r2, mse, corr]})
+        saved_y_obs.update({"ks_all": window_y_test})
+        saved_y_pred.update({"ks_all": window_y_pred})
+        plot_behavior_traces(window_y_test, window_y_pred, args.behavior, "ks_all",
+                             save_fig=True, out_path=fig_path+f"ks_all_traces_fold{i+1}.png")
+        
 
         # -- save outputs
         save_path = {}

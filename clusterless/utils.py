@@ -326,8 +326,7 @@ class NP1NHPDataLoader():
         active_trials = set(active_x_trials) & set(active_y_trials) & set(active_z_trials)
         return bin_behaviors, list(active_trials)
     
-    def prepare_decoder_input(self, trials, active_trials):
-        spike_times, spike_units = np.concatenate(trials)[:,[0,1]].T
+    def prepare_decoder_input(self, spike_times, spike_units, active_trials):
         spike_train = np.c_[spike_times, spike_units]
 
         thresholded = []
