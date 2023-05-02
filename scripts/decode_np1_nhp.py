@@ -148,7 +148,7 @@ if __name__ == "__main__":
         
         print("Decode using multi-unit thresholding:")
         
-        spike_times, spike_units = spike_index.T
+        spike_times, spike_units = np.concatenate(trials)[:,[0,1]].T
         thresholded = np1_nhp_loader.prepare_decoder_input(spike_times, spike_units, active_trials)
         saved_decoder_inputs.update({"thresholded": thresholded})
         fig_path = args.out_path + f"/np1_nhp/{args.behavior}/plots/"
