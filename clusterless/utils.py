@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 from one.api import ONE
 from brainbox.io.one import SpikeSortingLoader
@@ -36,7 +37,7 @@ class IBLDataLoader():
         if behavior_path == None:
             self.behave_dict, active_trials = featurize_behavior(self.eid, t_before=0.5, t_after=1.0, bin_size=0.05)
         else:
-            active_trials = np.load(f'{behavior_path}/{self.eid}_trials.npy')
+            active_trials = np.load(Path(behavior_path) / f'{self.eid}_trials.npy')
         self.stim_on_times = stim_on_times[active_trials]
         self.n_trials = self.stim_on_times.shape[0]
         print(f'First trial stimulus onset time: {self.stim_on_times[0]:.2f} sec')
@@ -96,7 +97,7 @@ class IBLDataLoader():
     
     
     def load_thresholded_units(self, region='all'):
-        spike_index = np.load(f'{self.ephys_path}/spike_index.npy') 
+        spike_index = np.load(Path(self.ephys_path) / f'spike_index.npy') 
         spike_times, spike_channels = spike_index.T
         spike_times = self.sl.samples2times(spike_times)
         unsorted = np.c_[spike_times, spike_channels]  
@@ -108,8 +109,8 @@ class IBLDataLoader():
     
     
     def load_spike_features(self, region='all'):
-        spike_index = np.load(f'{self.ephys_path}/spike_index.npy') 
-        localization_results = np.load(f'{self.ephys_path}/localization_results.npy')
+        spike_index = np.load(Path(self.ephys_path) / 'spike_index.npy') 
+        localization_results = np.load(Path(self.ephys_path) / 'localization_results.npy')
         spike_times, spike_channels = spike_index.T
         spike_times = self.sl.samples2times(spike_times)
         unsorted = np.c_[spike_times, spike_channels, localization_results]  
@@ -121,10 +122,10 @@ class IBLDataLoader():
     
     
     def relocalize_kilosort(self, data_path, region='all'):
-        spike_train = np.load(f'{data_path}/aligned_spike_train.npy')
-        spike_index = np.load(f'{data_path}/aligned_spike_index.npy') 
-        localization_results = np.load(f'{data_path}/aligned_localizations.npy')
-        maxptp = np.load(f'{data_path}/aligned_maxptp.npy')             
+        spike_train = np.load(Path(data_path) / 'aligned_spike_train.npy')
+        spike_index = np.load(Path(data_path) / 'aligned_spike_index.npy') 
+        localization_results = np.load(Path(data_path) / 'aligned_localizations.npy')
+        maxptp = np.load(Path(data_path) / 'aligned_maxptp.npy')             
         x, _, _, z, _ = localization_results.T
         spike_times, spike_channels = spike_index.T
         spike_times = self.sl.samples2times(spike_times)
@@ -153,7 +154,7 @@ class IBLDataLoader():
             pupil_diameter = self.behave_dict['pupil_diameter']
         else:
             # TO DO: Use dict to index behaviors instead of hard-coding.
-            behave_dict = np.load(f'{self.behavior_path}/{self.eid}_feature.npy')
+            behave_dict = np.load(Path(self.behavior_path) / f'{self.eid}_feature.npy')
             
             choices = behave_dict[:,:,:,23:25].sum(2)[0,:,:]
             print('choice left: %.3f, right: %.3f'%((choices.sum(0)[0]/choices.shape[0]), 
