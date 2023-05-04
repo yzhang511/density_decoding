@@ -31,7 +31,7 @@ def discrete_decoder(
     y_train = y[train]
     y_test = y[test]
     lr = LogisticRegression(random_state=seed, 
-                            max_iter=1e4, 
+                            max_iter=10000, 
                             tol = 0.01, 
                             solver='liblinear',
                             penalty=penalty_type, 
