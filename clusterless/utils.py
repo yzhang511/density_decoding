@@ -87,6 +87,10 @@ class IBLDataLoader():
             sorted = self._partition_brain_regions(sorted, region, self.clusters, 'good units', good_units)
         else:
             print(f'Found {len(good_units)} good Kilosort units')
+            good_sorted = []
+            for good_unit in good_units:
+                good_sorted.append(sorted[sorted[:,1] == good_unit])
+            sorted = np.vstack(good_sorted)
         
         tmp = pd.DataFrame({'spike_time': sorted[:,0], 'old_unit': sorted[:,1].astype(int)})
         tmp["old_unit"] = tmp["old_unit"].astype("category")
