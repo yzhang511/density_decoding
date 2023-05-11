@@ -1,8 +1,9 @@
+cython
 numpy
 pandas
 matplotlib
 scikit-learn
 ONE-api
 ibllib
-pytorch
-
+torch
+isosplit @ git+https://github.com/cwindolf/isosplit@main

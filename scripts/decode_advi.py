@@ -9,7 +9,6 @@ import numpy as np
 import random
 
 import torch
-from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import KFold
 
 from clusterless.utils import IBLDataLoader, ADVIDataLoader, initialize_gmm
