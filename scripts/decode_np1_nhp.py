@@ -48,6 +48,7 @@ if __name__ == "__main__":
                    choices=[
                        "x", "y", "z"
                    ])
+    g.add_argument("--filter_positive_gains", action="store_true")
     g.add_argument("--n_time_bins", default=30, type=int)
     g.add_argument("--t_start", default=0., type=float)
     g.add_argument("--t_end", default=9.85, type=float)
@@ -70,6 +71,8 @@ if __name__ == "__main__":
     ephys_data[:,0] = ephys_data[:,0] / args.sampling_freq
     trial_times = loadmat(args.trial_times_path)["simTime"]
     behavior = loadmat(args.behavior_path)["force"]
+    gain_mat = loadmat(args.ephys_path + "gain.mat")
+    gain = np.array([gain_mat["gain"][i].item().item() for i in range(len(gain_mat["gain"]))])
     
     # -- load ks data
     ks_spike_times = loadmat(args.ephys_path + "ks_spike_times.mat")["ks_spike_times"].flatten()
@@ -82,6 +85,11 @@ if __name__ == "__main__":
     print(f"Decode {args.behavior}-axis reaching force from {args.trials} trials.")
     
     bin_behavior, active_trials = np1_nhp_loader.bin_behaviors()
+    if args.filter_positive_gains:
+        filtered_trials = np.argwhere(gain == 1)
+    else:
+        filtered_trials = np.argwhere(gain == -1)
+    active_trials = np.intersect1d(active_trials, filtered_trials)
     active_trials = active_trials[:args.trials]
     bin_behavior = bin_behavior[active_trials]
     trials = np1_nhp_loader.partition_into_trials(active_trials)
