@@ -106,7 +106,7 @@ class ADVI(torch.nn.Module):
                     log_lambdas[k,:,t] = b_sample + beta_sample[:,t] * y[k][t]
         log_pis = log_lambdas - torch.logsumexp(log_lambdas, 1)[:,None,:]
                    
-        model_params = {"pi": log_pis.exp(), "b": b_sample, "beta": beta_sample}
+        model_params = {"lambda": log_lambdas.exp(), "pi": log_pis.exp(), "b": b_sample, "beta": beta_sample}
                                           
         return model_params
     
