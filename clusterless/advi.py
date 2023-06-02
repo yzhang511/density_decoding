@@ -75,16 +75,12 @@ class ADVI(torch.nn.Module):
         return elbo
     
         
-    def forward(self, s, y, ks, ts):
+    def forward(self, y):
         '''
         Inputs:
         -------
-        s: (n, d) array; n = # of spikes in each batch, d = spike feature dimension.
         y: array of size (k,) if y is binary, and of size (k, t) if y is continuous; 
-           k = # of trials in each batch, t = # of time bins. 
-        ks: (n,) index array that denotes the trial each spike belongs to.  
-        ts: (n,) index array that denotes the time bin each spike falls into. 
-        sampling: if True then sample from the variational q; if False then use the means of q. 
+           k = # of trials in each batch, t = # of time bins.     
         '''
         
         # define global variational variables
