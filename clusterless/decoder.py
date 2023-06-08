@@ -151,3 +151,51 @@ def sliding_window_decoder(
     
     return y_train, y_test, y_pred, r2, mse, corr
 
+
+def multi_trial_discrete_decoder(
+    x, 
+    y,
+    train, 
+    test,
+    d = 5,
+    penalty_type = "l2",
+    penalty_strength = 1000,
+    verbose = True
+):
+    x = x.transpose(1,2,0) # (n_c, n_t, n_k)
+    n_k = x.shape[-1]
+    
+    # use spiking activity from [k-d, k+d] trials to 
+    #     predict behavior in trial k.
+    multi_trial_x = []
+    for k in range(n_k):
+        window = [k - d, k + d - 1] \
+            if (2*d+1) % 2 == 0 else [k-d, k+d]
+        if np.logical_and(window[0] >= 0, window[1] <= n_k):
+            x_window = x[:,:,window[0]:window[1]].flatten()
+        elif window[0] < 0:
+            x_window = x[:,:,k:k+(2*d)].flatten()
+        elif window[1] > n_k:
+            x_window = x[:,:,k-(2*d):k].flatten()
+        multi_trial_x.append(x_window)
+    multi_trial_x = np.vstack(multi_trial_x)
+    
+    x_train = multi_trial_x[train]
+    x_test = multi_trial_x[test]
+    y_train = y[train]
+    y_test = y[test]
+    lr = LogisticRegression(random_state=seed, 
+                            max_iter=1e4, 
+                            tol = 0.01, 
+                            solver='liblinear',
+                            penalty=penalty_type, 
+                            C=penalty_strength)
+    lr.fit(x_train, y_train)
+    y_prob = lr.predict_proba(x_test)
+    y_pred = y_prob.argmax(1)
+    acc = accuracy_score(y_test, y_pred)
+    if verbose:
+        print(f'accuracy: {acc:.3f}')
+    return y_train, y_test, y_pred, y_prob, acc
+    
+    
