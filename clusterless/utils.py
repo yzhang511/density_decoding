@@ -21,9 +21,9 @@ class IBLDataLoader():
         self.behavior_path = behavior_path
         
         # load spike sorting data
-        self.one = ONE(base_url = 'https://alyx.internationalbrainlab.org', silent=True)
-        # self.one = ONE(base_url = 'https://openalyx.internationalbrainlab.org', 
-        #                password = 'international', silent = True)
+        # self.one = ONE(base_url = 'https://alyx.internationalbrainlab.org', silent=True)
+        self.one = ONE(base_url = 'https://openalyx.internationalbrainlab.org', 
+                       password = 'international', silent = True)
         ba = AllenAtlas()
         self.eid, probe = self.one.pid2eid(self.pid)
         self.sl = SpikeSortingLoader(pid = self.pid, one = self.one, atlas = ba)
