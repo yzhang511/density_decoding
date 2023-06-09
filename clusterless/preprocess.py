@@ -43,7 +43,9 @@ def featurize_behavior(eid, t_before=0.5, t_after=1.0, bin_size=0.05):
     
     """
     
-    one = ONE(base_url = 'https://alyx.internationalbrainlab.org', silent=True)
+#     one = ONE(base_url = 'https://alyx.internationalbrainlab.org', silent=True)
+    one = ONE(base_url = 'https://openalyx.internationalbrainlab.org', 
+              password = 'international', silent = True)
     
     # load trials
     trials = one.load_object(eid, 'trials')
