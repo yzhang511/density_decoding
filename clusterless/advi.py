@@ -111,6 +111,43 @@ class ADVI(torch.nn.Module):
         return model_params
     
     
+# def train_advi(advi, s, y, ks, ts, batch_ids, optim, max_iter):
+#     '''
+#     Inputs:
+#     -------
+#     s: (n, d) array; n = # of spikes in each recording session.
+#     y: array of size (k,) if y is binary, and of size (k, t) if y is continuous; 
+#        k = # of trials in each session. 
+#     ks: (n,) index array that denotes the trial each spike belongs to.  
+#     ts: (n,) index array that denotes the time bin each spike falls into. 
+#     batch_ids: trials indices in each batch. 
+#     optim: pytorch optimizer. 
+#     max_iter: max iteration allowed. 
+#     '''
+#     elbos = []
+#     N = s.shape[0]
+#     for i in range(max_iter):
+#         tot_elbo = 0
+#         for n, batch_idx in enumerate(batch_ids): 
+#             mask = torch.logical_and(ks >= np.min(batch_idx), ks <= np.max(batch_idx))
+#             batch_s = s[mask]
+#             batch_y = y[list(batch_idx)]
+#             batch_ks = ks[mask]
+#             batch_ts = ts[mask]
+#             model_params = advi(batch_s, batch_y, batch_ks, batch_ts)
+#             loss = - advi.compute_elbo(batch_s, batch_ks, batch_ts, model_params) / N
+#             loss.backward()
+#             tot_elbo -= loss.item()
+#             # if (n+1) % 100 == 0:
+#             #     print(f'iter: {i+1} batch {n+1}')
+#             optim.step()
+#             optim.zero_grad()
+#         print(f'iter: {i+1} total elbo: {tot_elbo:.2f}')
+#         elbos.append(tot_elbo)
+#     elbos = [elbo for elbo in elbos]
+#     return elbos
+
+
 def train_advi(advi, s, y, ks, ts, batch_ids, optim, max_iter):
     '''
     Inputs:
@@ -127,23 +164,21 @@ def train_advi(advi, s, y, ks, ts, batch_ids, optim, max_iter):
     elbos = []
     N = s.shape[0]
     for i in range(max_iter):
-        tot_elbo = 0
-        for n, batch_idx in enumerate(batch_ids): 
-            mask = torch.logical_and(ks >= np.min(batch_idx), ks <= np.max(batch_idx))
-            batch_s = s[mask]
-            batch_y = y[list(batch_idx)]
-            batch_ks = ks[mask]
-            batch_ts = ts[mask]
-            model_params = advi(batch_s, batch_y, batch_ks, batch_ts)
-            loss = - advi.compute_elbo(batch_s, batch_ks, batch_ts, model_params) / N
-            loss.backward()
-            tot_elbo -= loss.item()
-            # if (n+1) % 100 == 0:
-            #     print(f'iter: {i+1} batch {n+1}')
-            optim.step()
-            optim.zero_grad()
-        print(f'iter: {i+1} total elbo: {tot_elbo:.2f}')
-        elbos.append(tot_elbo)
+        n = np.random.choice(range(len(batch_ids)), 1).item()
+        batch_idx = batch_ids[n]
+        mask = torch.logical_and(ks >= np.min(batch_idx), ks <= np.max(batch_idx))
+        batch_s = s[mask]
+        batch_y = y[list(batch_idx)]
+        batch_ks = ks[mask]
+        batch_ts = ts[mask]
+        model_params = advi(batch_s, batch_y, batch_ks, batch_ts)
+        loss = - advi.compute_elbo(batch_s, batch_ks, batch_ts, model_params) / N
+        loss.backward()
+        elbo = - loss.item()
+        optim.step()
+        optim.zero_grad()
+        print(f'iter: {i+1} total elbo: {elbo:.2f}')
+        elbos.append(elbo)
     elbos = [elbo for elbo in elbos]
     return elbos
 
