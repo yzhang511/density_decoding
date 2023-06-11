@@ -9,7 +9,7 @@ def safe_log(x, minval=1e-10):
 
 
 class ADVI(torch.nn.Module):
-    def __init__(self, n_k, n_t, n_c, n_d, init_means, init_covs):
+    def __init__(self, n_k, n_t, n_c, n_d, init_means, init_covs, device="cpu"):
         super(ADVI, self).__init__()
         '''
         ADVI can be used for both the continuous and discrete behavior variables.
@@ -38,16 +38,19 @@ class ADVI(torch.nn.Module):
         self.beta_mu = torch.nn.Parameter(torch.randn((n_c, n_t)))
         self.beta_log_sig = torch.nn.Parameter(torch.randn((n_c, n_t)))
         
+        self.device = device
+        
     def _log_prior_plus_logabsdet_J(self, b_sample, beta_sample):
         '''
         Since both b and beta are continuous-valued, we do not need to consider the jacobian term
         as typically done in ADVI. 
         '''
         # log prior for b and beta, evaluated at sampled values 
-        lp_b = D.Normal(torch.zeros((self.n_c)), torch.ones((self.n_c))).log_prob(b_sample).sum()
+        lp_b = D.Normal(torch.zeros((self.n_c)).to(self.device), 
+                        torch.ones((self.n_c)).to(self.device)).log_prob(b_sample).sum()
 
-        lp_beta = D.Normal(torch.zeros((self.n_c, self.n_t)), 
-                           torch.ones((self.n_c, self.n_t))).log_prob(beta_sample).sum()
+        lp_beta = D.Normal(torch.zeros((self.n_c, self.n_t)).to(self.device), 
+                           torch.ones((self.n_c, self.n_t)).to(self.device)).log_prob(beta_sample).sum()
         
         return lp_b + lp_beta
     
@@ -64,14 +67,16 @@ class ADVI(torch.nn.Module):
         elbo = self._log_prior_plus_logabsdet_J(model_params["b"], model_params["beta"])
         elbo -= self._log_q(model_params["b"], model_params["beta"])
 
+        pis = torch.zeros((len(s), self.n_c)).to(self.device)
         for k in range(self.n_k):
             for t in range(self.n_t):
                 k_t_idx = torch.logical_and(ks==torch.unique(ks).int()[k], ts==t)
-                mix = D.Categorical(model_params["pi"][k,:,t])
-                comp = D.MultivariateNormal(self.means, self.covs)
-                gmm = D.MixtureSameFamily(mix, comp)
-                if len(s[k_t_idx]) > 0:
-                    elbo += gmm.log_prob(s[k_t_idx]).sum()
+                pis[k_t_idx] = model_params["pi"][k,:,t].to(self.device)
+                
+        mix = D.Categorical(pis)
+        comp = D.MultivariateNormal(self.means, self.covs)
+        gmm = D.MixtureSameFamily(mix, comp)
+        elbo = gmm.log_prob(s).sum()
         return elbo
     
         
@@ -84,6 +89,7 @@ class ADVI(torch.nn.Module):
            k = # of trials in each batch, t = # of time bins. 
         ks: (n,) index array that denotes the trial each spike belongs to.  
         ts: (n,) index array that denotes the time bin each spike falls into. 
+        sampling: if True then sample from the variational q; if False then use the means of q. 
         '''
         
         # define global variational variables
@@ -97,12 +103,7 @@ class ADVI(torch.nn.Module):
         # compute mixing proportions 
         n_k = len(y)
         log_lambdas = torch.zeros((n_k, self.n_c, self.n_t))
-        for k in range(n_k):
-            for t in range(self.n_t):
-                if len(y.shape) == 1:
-                    log_lambdas[k,:,t] = b_sample + beta_sample[:,t] * y[k]
-                else:
-                    log_lambdas[k,:,t] = b_sample + beta_sample[:,t] * y[k][t]
+        log_lambdas = (b_sample[:,None,None] + beta_sample[:,:,None] * y.T).permute((-1,0,1))
         log_pis = log_lambdas - torch.logsumexp(log_lambdas, 1)[:,None,:]
                    
         model_params = {"lambda": log_lambdas.exp(), "pi": log_pis.exp(), "b": b_sample, "beta": beta_sample}
@@ -175,14 +176,8 @@ def encode_gmm(advi, data, train, test, y_train, y_pred):
     
     # compute dynamic mixing proportions
     log_lambdas = np.zeros((n_k, advi.n_c, advi.n_t))
-    for i, k in enumerate(trial_idx):
-        for t in range(advi.n_t):
-            if len(y.shape) == 1:
-                log_lambdas[k,:,t] = advi.b.loc.detach().numpy() + \
-                                     advi.beta.loc[:,t].detach().numpy() * y[i]
-            else:
-                log_lambdas[k,:,t] = advi.b.loc.detach().numpy() + \
-                                     advi.beta.loc[:,t].detach().numpy() * y[i][t]
+    log_lambdas = (advi.b.loc.detach().numpy()[:,None,None] + \
+                   advi.beta.loc.detach().numpy()[:,:,None] * y.T).transpose((-1,0,1))
     log_pis = log_lambdas - logsumexp(log_lambdas, 1)[:,None,:]
     encoded_pis = np.exp(log_pis)
 
@@ -199,6 +194,3 @@ def encode_gmm(advi, data, train, test, y_train, y_pred):
                 encoded_weights[k,:,t] = encoded_gmm.predict_proba(data[k][t][:,1:]).sum(0)
 
     return encoded_pis, encoded_weights
-
-
-
