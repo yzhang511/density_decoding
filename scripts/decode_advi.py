@@ -1,7 +1,3 @@
-"""
-
-
-"""
 import os
 import sys
 import argparse
@@ -9,6 +5,7 @@ import numpy as np
 import random
 
 import torch
+from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import KFold
 
 from clusterless.utils import IBLDataLoader, ADVIDataLoader, initialize_gmm
@@ -28,6 +25,8 @@ def set_seed(value):
     torch.manual_seed(value)
     torch.set_default_dtype(torch.double)
 
+def to_device(x):
+    return torch.tensor(x).to(device)
 
 
 if __name__ == "__main__":
@@ -64,8 +63,9 @@ if __name__ == "__main__":
     
     g = ap.add_argument_group("Training configuration")
     g.add_argument("--batch_size", default=1, type=int)
-    g.add_argument("--learning_rate", default=1e-3, type=float)
+    g.add_argument("--learning_rate", default=1e-2, type=float)
     g.add_argument("--max_iter", default=30, type=int)
+    g.add_argument("--device", default="cpu", type=str, choices=["cpu", "gpu"])
     
     args = ap.parse_args()
     
@@ -109,6 +109,9 @@ if __name__ == "__main__":
     else:
         encoding_behavior = behavior.copy()
         
+    if args.behavior == "motion_energy":
+        encoding_behavior = np.log(encoding_behavior + 1e-8)
+        
     advi_data_loader = ADVIDataLoader(
                              data = trials, 
                              behavior = behavior, 
@@ -119,6 +122,9 @@ if __name__ == "__main__":
     n_c = gmm.means_.shape[0]
     n_d = gmm.means_.shape[1]
     print(f"Initializ GMM with {n_c} components and {n_d} spike features.")
+    
+    device = torch.device("cuda:0" if args.device == "gpu" else "cpu")
+    print(f"Train ADVI with device {args.device} ..")
     
     # -- k-fold CV
     kf = KFold(n_splits=5, shuffle=True, random_state=seed)
@@ -139,16 +145,18 @@ if __name__ == "__main__":
             n_c=n_c, 
             n_d=n_d, 
             init_means=gmm.means_, 
-            init_covs=gmm.covariances_
+            init_covs=gmm.covariances_,
+            device=device
         )
+        advi.to(device)
         
         try:
             elbos = train_advi(
                 advi,
-                s = torch.tensor(train_data[:,1:]), 
-                y = torch.tensor(encoding_behavior), 
-                ks = torch.tensor(train_ks), 
-                ts = torch.tensor(train_ts), 
+                s = to_device(train_data[:,1:]), 
+                y = to_device(behavior), 
+                ks = to_device(train_ks), 
+                ts = to_device(train_ts), 
                 batch_ids = list(zip(*(iter(train),) * args.batch_size)), 
                 optim = torch.optim.Adam(advi.parameters(), lr=args.learning_rate), 
                 max_iter=args.max_iter
@@ -185,6 +193,7 @@ if __name__ == "__main__":
                 test, 
                 args.penalty_type,
                 args.penalty_strength,
+                verbose = False
             )
             saved_metrics.update({"thresholded": acc})
             saved_y_obs.update({"thresholded": y_test})
@@ -216,6 +225,9 @@ if __name__ == "__main__":
             
         print("Decode using ADVI + GMM:")
         
+        if args.device == "gpu":
+            advi.to(torch.device("cpu"))
+            
         encoded_pis, encoded_weights = encode_gmm(
             advi, advi_data_loader.trials, train, test, y_train, y_pred
         )
@@ -255,7 +267,6 @@ if __name__ == "__main__":
             
         if args.train_with_motion_energy:
             print("Decode using ADVI + GMM (train with motion energy):")
-        
             encoded_pis, encoded_weights = encode_gmm(
                 advi, advi_data_loader.trials, train, test, enc_behave_train, enc_behave_pred
             )
