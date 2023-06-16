@@ -1,5 +1,5 @@
 
-# Installation
+# spike sorting-free decoding
 
 Create an environment and install this package and any other dependencies:
 ```
