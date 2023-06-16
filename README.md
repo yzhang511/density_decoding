@@ -1,4 +1,4 @@
-# clusterless decoding
+# spike sorting-free decoding
 
 for running this code:
 ```
