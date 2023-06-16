@@ -1,8 +1,13 @@
 # spike sorting-free decoding
 
-for running this code:
+### Installation
+------------------
+Create an environment and install this package and any other dependencies:
 ```
-pip install -r requirements.txt
-pip install -e.
+conda create --name <ENVIRONMENT_NAME> python=3.8
+conda activate <ENVIRONMENT_NAME>
+git clone 
+cd
+pip install -e .
 ```
 
