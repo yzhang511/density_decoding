@@ -168,7 +168,6 @@ class ADVI(torch.nn.Module):
             elbo += gmm.log_prob(spike_features).sum() * scaling_factor
             
         else:
-            print(n_k)
             for k in range(n_k):
                 for t in range(self.n_t):
                     trial_time_idx = torch.logical_and(
