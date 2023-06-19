@@ -40,9 +40,10 @@ def decode_pipeline(
     inference="advi",
     batch_size=1,
     learning_rate=1e-2,
-    max_iter=50,
+    max_iter=500,
     cavi_max_iter=10,
     fast_compute=True,
+    stochastic=True,
     penalty_strength=1,
     device=torch.device("cpu"),
     n_workers=4
@@ -93,6 +94,7 @@ def decode_pipeline(
         )
 
         if behavior_type == "discrete":
+            max_iter = 50
             model_data_loader.bin_behaviors = model_data_loader.bin_behaviors.reshape(-1,1)
             
         train_spike_features, train_trial_idxs, train_time_idxs, \
@@ -107,16 +109,22 @@ def decode_pipeline(
                 device=device
             )
             
+            if batch_size == 1:
+                batch_idxs = list(zip(*(iter(train),) * batch_size))
+            else:
+                batch_idxs = list(zip(*(iter(np.arange(len(train))),) * batch_size))
+            
             elbos = train_advi(
                 advi,
                 spike_features = to_device(train_spike_features[:,1:], device), 
                 behaviors = to_device(model_data_loader.bin_behaviors, device), 
                 trial_idxs = to_device(train_trial_idxs, device), 
                 time_idxs = to_device(train_time_idxs, device), 
-                batch_idxs= list(zip(*(iter(train),) * batch_size)), 
+                batch_idxs= batch_idxs, 
                 optim = torch.optim.Adam(advi.parameters(), lr=learning_rate),
                 max_iter=max_iter,
-                fast_compute=fast_compute
+                fast_compute=fast_compute,
+                stochastic=stochastic
             )
             
             parameters = advi.parameters()

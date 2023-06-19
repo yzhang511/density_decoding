@@ -228,7 +228,8 @@ def train_advi(
     batch_idxs, 
     optim, 
     max_iter=1000,
-    fast_compute=True
+    fast_compute=True,
+    stochastic=True
 ):
     """
     Trains the ADVI model on the provided dataset.
@@ -257,31 +258,65 @@ def train_advi(
     elbos = []
     for it in tqdm(range(max_iter), desc="Train ADVI"):
         
-        idx = np.random.choice(range(n_batches), 1).item()
-        batch_idx = batch_idxs[idx]
-        mask = torch.logical_and(trial_idxs >= np.min(batch_idx), 
-                                 trial_idxs <= np.max(batch_idx))
-        
-        batch_spike_features = spike_features[mask]
-        batch_behaviors = behaviors[list(batch_idx)]
-        batch_trial_idxs = trial_idxs[mask]
-        batch_time_idxs = time_idxs[mask]
-        
-        model_params = model(batch_behaviors)
-        
-        loss = - model.compute_elbo(
-            batch_spike_features, 
-            batch_trial_idxs, 
-            batch_time_idxs, 
-            model_params, 
-            scaling_factor=batch_size/N,
-            fast_compute=fast_compute
-        )
-        loss.backward()
-        elbo = - loss.item()
-        optim.step()
-        optim.zero_grad()
-        elbos.append(elbo)
+        if stochastic:
+            
+            idx = np.random.choice(range(n_batches), 1).item()
+            batch_idx = batch_idxs[idx]
+            mask = torch.logical_and(trial_idxs >= np.min(batch_idx), 
+                                     trial_idxs <= np.max(batch_idx))
+
+            batch_spike_features = spike_features[mask]
+            batch_behaviors = behaviors[list(batch_idx)]
+            batch_trial_idxs = trial_idxs[mask]
+            batch_time_idxs = time_idxs[mask]
+
+            model_params = model(batch_behaviors)
+
+            loss = - model.compute_elbo(
+                batch_spike_features, 
+                batch_trial_idxs, 
+                batch_time_idxs, 
+                model_params, 
+                scaling_factor=batch_size/N,
+                fast_compute=fast_compute
+            )
+            loss.backward()
+            elbo = - loss.item()
+            optim.step()
+            optim.zero_grad()
+            elbos.append(elbo)
+            
+        else:
+            
+            tot_elbo = 0
+            for idx, batch_idx in enumerate(batch_idxs): 
+                
+                mask = torch.logical_and(
+                    trial_idxs >= np.min(batch_idx), 
+                    trial_idxs <= np.max(batch_idx)
+                )
+                
+                batch_spike_features = spike_features[mask]
+                batch_behaviors = behaviors[list(batch_idx)]
+                batch_trial_idxs = trial_idxs[mask]
+                batch_time_idxs = time_idxs[mask]
+                
+                model_params = model(batch_behaviors)
+                
+                loss = - model.compute_elbo(
+                    batch_spike_features, 
+                    batch_trial_idxs, 
+                    batch_time_idxs, 
+                    model_params, 
+                    scaling_factor=batch_size/N,
+                    fast_compute=fast_compute
+                )
+                
+                loss.backward()
+                tot_elbo -= loss.item()
+                optim.step()
+                optim.zero_grad()
+            elbos.append(tot_elbo)
         
     elbos = [elbo for elbo in elbos]
     
@@ -402,4 +437,3 @@ def compute_weight_single_process(x, y, post_params):
             weight_matrix[:,:,t] = post_gmm.predict_proba(x[t][:,1:]).sum(0)
                 
     return mixture_weights, weight_matrix
-
