@@ -609,6 +609,7 @@ class IBLDataLoader(BaseDataLoader):
         behave_dict.update({"choice": choice})
         behave_dict.update({"motion_energy": bin_left_me})
         behave_dict.update({"wheel_velocity": bin_vel})
+        behave_dict.update({"wheel_speed": np.abs(bin_vel)})
         # behave_dict.update({"paw_speed": bin_paw_speed})
         # behave_dict.update({"pupil_diameter": bin_pup_dia})
 

@@ -94,7 +94,6 @@ def decode_pipeline(
         )
 
         if behavior_type == "discrete":
-            max_iter = 50
             model_data_loader.bin_behaviors = model_data_loader.bin_behaviors.reshape(-1,1)
             
         train_spike_features, train_trial_idxs, train_time_idxs, \

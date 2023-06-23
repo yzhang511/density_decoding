@@ -251,7 +251,8 @@ def train_advi(
     """
     
     assert max_iter > 5, "need more iterations to train the model."
-    N = spike_features.shape[0]
+    # N = spike_features.shape[0]
+    N = len(torch.unique(trial_idxs))
     n_batches, batch_size = len(batch_idxs), len(batch_idxs[0])
     fast_compute = False if batch_size > 1 else True
     

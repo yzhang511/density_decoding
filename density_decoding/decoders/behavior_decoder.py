@@ -12,7 +12,7 @@ def generic_decoder(
     train, 
     test,
     behavior_type,
-    penalty_strength=1000,
+    penalty_strength=1,
     verbose=False,
     seed=666
 ):
@@ -176,18 +176,16 @@ def sliding_window_decoder(
         half_window_size = get_odd_number(window_size)
         # (n_k, n_c, n_t) --> (n_c, n_t, n_k)
         x = x.transpose(1,2,0) 
-        window_size = 2 * half_window_size
 
         windowed_x = []
         for k in range(n_k):
-            window = [k-half_window_size, k+half_window_size-1] \
-                if (window_size+1) % 2 == 0 else [k-half_window_size, k+half_window_size]
+            window = [k-half_window_size, k+half_window_size+1] 
             if np.logical_and(window[0] >= 0, window[1] <= n_k):
                 sub_x = x[:,:,window[0]:window[1]].flatten()
             elif window[0] < 0:
-                sub_x = x[:,:,k:k+window_size].flatten()
+                sub_x = x[:,:,k:k+2*half_window_size+1].flatten()
             elif window[1] > n_k:
-                sub_x = x[:,:,k-window_size:k].flatten()
+                sub_x = x[:,:,k-2*half_window_size:k+1].flatten()
             windowed_x.append(sub_x)
         windowed_x = np.vstack(windowed_x)
         
