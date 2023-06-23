@@ -370,8 +370,7 @@ def compute_posterior_weight_matrix(
         mixture_weights = np.exp(log_pis)
 
         weight_matrix = np.zeros((n_k, n_c, n_t))
-        for i in tqdm(range(n_k), desc="Compute weight matrix"):
-            k = align_idxs[i]
+        for k in tqdm(range(n_k), desc="Compute weight matrix"):
             for t in range(n_t):
                 post_gmm = GaussianMixture(n_components=n_c, covariance_type='full')
                 post_gmm.weights_ = mixture_weights[k,:,t]
