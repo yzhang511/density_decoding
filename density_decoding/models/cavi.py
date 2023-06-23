@@ -424,9 +424,10 @@ def compute_cavi_weight_matrix(
         weight_matrix: size (n_k, n_c, n_t) array
     """
     
-    aligned_idxs = np.append(train, test)
+    align_idxs = np.append(train, test)
     y_train, y_pred = y_train.squeeze(), y_pred.squeeze()
     y = np.hstack([y_train, y_pred]).astype(int)
+    x = [x[idx] for idx in align_idxs]
     n_k = len(y) 
     n_c, n_t, _ = post_params["lambdas"].shape
     
@@ -440,8 +441,7 @@ def compute_cavi_weight_matrix(
     mixture_weights = post_params["lambdas"] / post_params["lambdas"].sum(0)
     
     weight_matrix = np.zeros((n_k, n_c, n_t)) 
-    for i in tqdm(range(n_k), desc="Compute weight matrix"):
-        k = aligned_idxs[i]
+    for k in tqdm(range(n_k), desc="Compute weight matrix"):
         for t in range(n_t):
             post_gmm.weights_ = mixture_weights[:,t,y[k]]
             if len(x[k][t]) > 0:
