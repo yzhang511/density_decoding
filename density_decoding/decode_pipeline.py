@@ -108,10 +108,7 @@ def decode_pipeline(
                 device=device
             )
             
-            if batch_size == 1:
-                batch_idxs = list(zip(*(iter(train),) * batch_size))
-            else:
-                batch_idxs = list(zip(*(iter(np.arange(len(train))),) * batch_size))
+            batch_idxs = list(zip(*(iter(train),) * batch_size))
             
             elbos = train_advi(
                 advi,

@@ -251,7 +251,6 @@ def train_advi(
     """
     
     assert max_iter > 5, "need more iterations to train the model."
-    # N = spike_features.shape[0]
     N = len(torch.unique(trial_idxs))
     n_batches, batch_size = len(batch_idxs), len(batch_idxs[0])
     fast_compute = False if batch_size > 1 else True
@@ -263,8 +262,7 @@ def train_advi(
             
             idx = np.random.choice(range(n_batches), 1).item()
             batch_idx = batch_idxs[idx]
-            mask = torch.logical_and(trial_idxs >= np.min(batch_idx), 
-                                     trial_idxs <= np.max(batch_idx))
+            mask = np.sum([trial_idxs[0] == idx for idx in batch_idx], axis=0)
 
             batch_spike_features = spike_features[mask]
             batch_behaviors = behaviors[list(batch_idx)]
@@ -292,10 +290,7 @@ def train_advi(
             tot_elbo = 0
             for idx, batch_idx in enumerate(batch_idxs): 
                 
-                mask = torch.logical_and(
-                    trial_idxs >= np.min(batch_idx), 
-                    trial_idxs <= np.max(batch_idx)
-                )
+                mask = np.sum([trial_idxs[0] == idx for idx in batch_idx], axis=0)
                 
                 batch_spike_features = spike_features[mask]
                 batch_behaviors = behaviors[list(batch_idx)]
