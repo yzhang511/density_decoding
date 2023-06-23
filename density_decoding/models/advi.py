@@ -54,10 +54,10 @@ class ModelDataLoader():
         ).astype(bool)
         
         train_trial_idxs, test_trial_idxs = trial_idxs[train_mask], trial_idxs[test_mask]
-        train_time_idxss, test_time_idxs = time_idxs[train_mask], time_idxs[test_mask]
+        train_time_idxs, test_time_idxs = time_idxs[train_mask], time_idxs[test_mask]
         train_spike_features, test_spike_features = spike_features[train_mask], spike_features[test_mask]
         
-        return train_spike_features, train_trial_idxs, train_time_idxss, \
+        return train_spike_features, train_trial_idxs, train_time_idxs, \
                test_spike_features, test_trial_idxs, test_time_idxs
     
 
