@@ -205,7 +205,6 @@ class ADVI(torch.nn.Module):
         beta_sample = self.beta.rsample()
                  
         # compute mixing proportions 
-        log_lambdas = torch.zeros((n_k, self.n_c, self.n_t))
         log_lambdas = (b_sample[None,:,None] + beta_sample[None,:,:] * behaviors[:,None,:])
         log_pis = log_lambdas - torch.logsumexp(log_lambdas, 1)[:,None,:]
                    
@@ -362,7 +361,6 @@ def compute_posterior_weight_matrix(
         
     if n_workers == 1:
         
-        log_lambdas = np.zeros((n_k, n_c, n_t))
         log_lambdas = (
             post_params["b"][:,None,None] + post_params["beta"][:,:,None] * y.T
         ).transpose((-1,0,1))
@@ -413,7 +411,6 @@ def compute_weight_single_process(x, y, post_params):
     y = y.reshape(1,-1)
     n_c, n_t = post_params["beta"].shape
     
-    log_lambdas = np.zeros((1, n_c, n_t))
     log_lambdas = (post_params["b"][:,None,None] + \
                    post_params["beta"][:,:,None] * y.T).transpose((-1,0,1))
     log_pis = log_lambdas - logsumexp(log_lambdas, 1)[:,None,:]
