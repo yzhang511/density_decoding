@@ -3,6 +3,6 @@ pandas
 matplotlib
 scikit-learn
 ONE-api
-ibllib
+ibllib @ git+https://github.com/int-brain-lab/ibllib.git
 torch
 isosplit @ git+https://github.com/cwindolf/isosplit@main
