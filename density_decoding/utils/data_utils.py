@@ -620,7 +620,7 @@ def initilize_gaussian_mixtures(
     spike_features, 
     spike_channels=None, 
     method="isosplit", 
-    n_c = 100,
+    n_c = 50,
     verbose=False
 ):
     """
@@ -744,3 +744,23 @@ def bin_norm(times, events, pre_time, post_time, bin_size, weights):
     return bin_vals, t
 
 
+def sliding_window_behaviors(y, delta=5):
+    n_k = len(y)
+
+    y_pos = []
+    y_window = []
+    for k in range(n_k):
+        window = [k-delta, k+delta+1] 
+        if np.logical_and(window[0] >= 0, window[1] <= n_k):
+            sub_y = y[window[0]:window[1]]
+            y_pos.append(delta)
+        elif window[0] < 0:
+            sub_y = y[k:k+2*delta+1]
+            y_pos.append(0)
+        elif window[1] > n_k:
+            sub_y = y[k-2*delta:k+1]
+            y_pos.append(-1)
+        y_window.append(sub_y)
+    y_window = np.vstack(y_window)
+    
+    return y_window, y_pos

@@ -447,7 +447,7 @@ def compute_cavi_weight_matrix(
             if len(x[k][t]) > 0:
                 weight_matrix[k,:,t] = post_gmm.predict_proba(x[k][t][:,1:]).sum(0)
                 
-    match_idxs = [np.argwhere(np.array(aligned_idxs) == k).item() for k in range(n_k)]
+    match_idxs = [np.argwhere(np.array(align_idxs) == k).item() for k in range(n_k)]
     weight_matrix = weight_matrix[match_idxs]
 
     return mixture_weights, weight_matrix

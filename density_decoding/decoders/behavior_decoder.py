@@ -14,7 +14,8 @@ def generic_decoder(
     behavior_type,
     penalty_strength=1,
     verbose=False,
-    seed=666
+    seed=666,
+    return_prob=False
 ):
     """
     Decode dicrete and continuous behaviors w/ L2-penalized linear models.
@@ -64,12 +65,15 @@ def generic_decoder(
         metrics.update({"r2": r2_score(y_test, y_pred)})
         metrics.update({"mse": mean_squared_error(y_test, y_pred)})
         metrics.update({"corr": pearsonr(y_test.flatten(), 
-                                         y_pred.flatten()).statistic})
+                                         y_pred.flatten())[0]})
 
         if verbose:
             print(f'R2: {metrics["r2"]:.3f}, MSE: {metrics["mse"]:.3f}, Corr: {metrics["corr"]:.3f}')
 
-    return y_train, y_test, y_pred, metrics
+    if return_prob:
+        return y_train, y_test, y_pred, y_prob, metrics
+    else:
+        return y_train, y_test, y_pred, metrics
 
     
 def sliding_window(x, window_size):
@@ -114,7 +118,8 @@ def sliding_window_decoder(
     window_size=7,
     penalty_strength=1000,
     verbose=True,
-    seed=666
+    seed=666,
+    return_prob=False
 ):
     """
     Decode continuous and discrete behaviors via sliding window algorithm.
@@ -166,7 +171,7 @@ def sliding_window_decoder(
         metrics.update({"r2": r2_score(y_test, y_pred)})
         metrics.update({"mse": mean_squared_error(y_test, y_pred)})
         metrics.update({"corr": pearsonr(y_test.flatten(), 
-                                         y_pred.flatten()).statistic})
+                                         y_pred.flatten())[0]})
 
         if verbose:
             print(f'R2: {metrics["r2"]:.3f}, MSE: {metrics["mse"]:.3f}, Corr: {metrics["corr"]:.3f}')
@@ -200,5 +205,8 @@ def sliding_window_decoder(
             seed=seed
         )
             
-    return y_train, y_test, y_pred, metrics
+    if return_prob:
+        return y_train, y_test, y_pred, y_prob, metrics
+    else:
+        return y_train, y_test, y_pred, metrics
 
