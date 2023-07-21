@@ -4,6 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from pathlib import Path
 
 from one.api import ONE
 from brainbox.io.one import SpikeSortingLoader
@@ -197,7 +198,8 @@ class IBLDataLoader(BaseDataLoader):
         trial_length,
         n_t_bins,
         base_url = "https://openalyx.internationalbrainlab.org",
-        password = "international"
+        password = "international",
+        prior_path=None
     ):
         super().__init__(trial_length, n_t_bins)
         """
@@ -227,7 +229,7 @@ class IBLDataLoader(BaseDataLoader):
         self.t_before, self.t_after = trial_length * (1/3), trial_length * (2/3)
         self.bin_size = trial_length / n_t_bins
         stim_on_times = self.one.load_object(self.eid, "trials", collection="alf")["stimOn_times"]
-        self.behave_dict, valid_trials = self._featurize_behavior()
+        self.behave_dict, valid_trials = self._featurize_behavior(prior_path=prior_path)
         self.stim_on_times = stim_on_times[valid_trials]
         self.n_trials = self.stim_on_times.shape[0]
         
@@ -505,14 +507,14 @@ class IBLDataLoader(BaseDataLoader):
             behaviors: size (n_k,) or (n_k, n_t) array for discrete or continuous variables
         """
         
-        valid_types = ["choice", "motion_energy", "wheel_velocity", "wheel_speed"]
+        valid_types = ["choice", "prior", "motion_energy", "wheel_velocity", "wheel_speed"]
         assert behavior_type in valid_types, f"invalid behavior type; expected one of {valid_types}."
         
         behaviors = self.behave_dict[behavior_type]
         return behaviors
     
     
-    def _featurize_behavior(self):
+    def _featurize_behavior(self, prior_path=None):
         """
         Preprocess behavioral data from IBL. Adapted from:
         https://github.com/int-brain-lab/paper-reproducible-ephys.
@@ -604,7 +606,7 @@ class IBLDataLoader(BaseDataLoader):
         # pupil diameter
         # bin_pup_dia, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
         #                           self.t_after, self.bin_size, weights=pupil_diameter)
-
+        
         behave_dict = {}
         behave_dict.update({"choice": choice})
         behave_dict.update({"motion_energy": bin_left_me})
@@ -612,6 +614,13 @@ class IBLDataLoader(BaseDataLoader):
         behave_dict.update({"wheel_speed": np.abs(bin_vel)})
         # behave_dict.update({"paw_speed": bin_paw_speed})
         # behave_dict.update({"pupil_diameter": bin_pup_dia})
+        
+        # load priors
+        try:
+            prior = np.load(Path(prior_path) / f'prior_{self.eid}.npy')
+            behave_dict.update({"prior": prior})
+        except:
+            print("prior for this session is not found.")
 
         return behave_dict, trial_idx
     
