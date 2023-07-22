@@ -618,7 +618,7 @@ class IBLDataLoader(BaseDataLoader):
         # load priors
         try:
             prior = np.load(Path(prior_path) / f'prior_{self.eid}.npy')
-            behave_dict.update({"prior": prior})
+            behave_dict.update({"prior": prior[trial_idx]})
         except:
             print("prior for this session is not found.")
 
