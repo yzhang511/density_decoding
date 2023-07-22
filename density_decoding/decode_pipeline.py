@@ -95,6 +95,8 @@ def decode_pipeline(
 
         if behavior_type == "discrete":
             model_data_loader.bin_behaviors = model_data_loader.bin_behaviors.reshape(-1,1)
+        elif np.logical_and(behavior_type == "continuous", len(bin_behaviors.shape) == 1):
+            model_data_loader.bin_behaviors = model_data_loader.bin_behaviors.reshape(-1,1)
             
         train_spike_features, train_trial_idxs, train_time_idxs, \
         test_spike_features, test_trial_idxs, test_time_idxs = \

@@ -32,6 +32,7 @@ if __name__ == "__main__":
     g.add_argument("--pid")
     g.add_argument("--ephys_path")
     g.add_argument("--out_path")
+    g.add_argument("--prior_path", default=None, type=str)
     
     g = ap.add_argument_group("Decoding Config")
     g.add_argument("--behavior", 
@@ -39,6 +40,7 @@ if __name__ == "__main__":
                    type=str, 
                    choices=[
                        "choice", 
+                       "prior",
                        "motion_energy", 
                        "wheel_speed", 
                        "wheel_velocity"
@@ -69,7 +71,8 @@ if __name__ == "__main__":
     ibl_data_loader = IBLDataLoader(
         args.pid, 
         trial_length = 1.5, 
-        n_t_bins = args.n_t_bins
+        n_t_bins = args.n_t_bins,
+        prior_path = args.prior_path
     )
     
     print("available brain regions to decode:")
@@ -107,7 +110,7 @@ if __name__ == "__main__":
 
         print(f"Fold {i+1} / 5:")
         
-        saved_metrics, saved_y_obs, saved_y_pred = {}, {}, {}
+        saved_metrics, saved_y_obs, saved_y_pred, saved_y_prob = {}, {}, {}, {}
 
         weight_matrix = decode_pipeline(
             ibl_data_loader,
@@ -128,7 +131,7 @@ if __name__ == "__main__":
             n_workers=args.n_workers
         )
         
-        if behavior_type == "continuous":
+        if np.logical_and(behavior_type == "continuous", args.behavior != "prior"):
             
             print("thresholded:")
             y_train, y_test, y_pred, metrics = sliding_window_decoder(
@@ -167,10 +170,53 @@ if __name__ == "__main__":
         elif behavior_type == "discrete":
             
             print("thresholded:")
+            y_train, y_test, y_pred, y_prob, metrics = generic_decoder(
+                thresholded_spike_count, behavior, train, test, 
+                behavior_type=behavior_type, verbose=True, return_prob=True
+            )
+            saved_metrics.update({"thresholded": metrics["acc"]})
+            saved_y_obs.update({"thresholded": y_test})
+            saved_y_pred.update({"thresholded": y_pred})
+            saved_y_prob.update({"thresholded": y_prob})
+            
+            print("density-based:")
+            y_train, y_test, y_pred, y_prob, metrics = generic_decoder(
+                weight_matrix, behavior, train, test, 
+                behavior_type=behavior_type, verbose=True, return_prob=True
+            )
+            saved_metrics.update({"density_based": metrics["acc"]})
+            saved_y_obs.update({"density_based": y_test})
+            saved_y_pred.update({"density_based": y_pred})
+            saved_y_prob.update({"density_based": y_prob})
+            
+            print("all Kilosort units:")
+            y_train, y_test, y_pred, y_prob, metrics = generic_decoder(
+                all_sorted_spike_count, behavior, train, test, 
+                behavior_type=behavior_type, verbose=True, return_prob=True
+            )
+            saved_metrics.update({"all_ks": metrics["acc"]})
+            saved_y_obs.update({"all_ks": y_test})
+            saved_y_pred.update({"all_ks": y_pred})
+            saved_y_prob.update({"all_ks": y_prob})
+            
+            if not skip_good_ks:
+                print("good Kilosort units:")
+                y_train, y_test, y_pred, y_prob, metrics = generic_decoder(
+                    good_sorted_spike_count, behavior, train, test, 
+                    behavior_type=behavior_type, verbose=True, return_prob=True
+                )
+                saved_metrics.update({"good_ks": metrics["acc"]})
+                saved_y_obs.update({"good_ks": y_test})
+                saved_y_pred.update({"good_ks": y_pred})
+                saved_y_prob.update({"good_ks": y_prob})
+                
+        elif args.behavior == "prior":
+            
+            print("thresholded:")
             y_train, y_test, y_pred, metrics = generic_decoder(
                 thresholded_spike_count, behavior, train, test, behavior_type=behavior_type, verbose=True
             )
-            saved_metrics.update({"thresholded": metrics["acc"]})
+            saved_metrics.update({"thresholded": [metrics["r2"], metrics["mse"], metrics["corr"]]})
             saved_y_obs.update({"thresholded": y_test})
             saved_y_pred.update({"thresholded": y_pred})
             
@@ -178,47 +224,42 @@ if __name__ == "__main__":
             y_train, y_test, y_pred, metrics = generic_decoder(
                 weight_matrix, behavior, train, test, behavior_type=behavior_type, verbose=True
             )
-            saved_metrics.update({"density_based": metrics["acc"]})
+            saved_metrics.update({"density_based": [metrics["r2"], metrics["mse"], metrics["corr"]]})
             saved_y_obs.update({"density_based": y_test})
             saved_y_pred.update({"density_based": y_pred})
             
             print("all Kilosort units:")
-            _, y_test, ks_pred, metrics = generic_decoder(
+            y_train, y_test, y_pred, metrics = generic_decoder(
                 all_sorted_spike_count, behavior, train, test, behavior_type=behavior_type, verbose=True
             )
-            saved_metrics.update({"all_ks": metrics["acc"]})
+            saved_metrics.update({"all_ks": [metrics["r2"], metrics["mse"], metrics["corr"]]})
             saved_y_obs.update({"all_ks": y_test})
             saved_y_pred.update({"all_ks": y_pred})
             
             if not skip_good_ks:
                 print("good Kilosort units:")
-                _, _, _, _ = generic_decoder(
+                y_train, y_test, y_pred, metrics = generic_decoder(
                     good_sorted_spike_count, behavior, train, test, behavior_type=behavior_type, verbose=True
                 )
-                saved_metrics.update({"good_ks": metrics["acc"]})
+                saved_metrics.update({"good_ks": [metrics["r2"], metrics["mse"], metrics["corr"]]})
                 saved_y_obs.update({"good_ks": y_test})
                 saved_y_pred.update({"good_ks": y_pred})
+            
             
             
         # -- save outputs
         save_path = {}
         out_path = Path(args.out_path)
-        for res in ["metrics", "y_obs", "y_pred"]:
+        for res in ["metrics", "y_obs", "y_pred", "y_prob", "trial_idx"]:
             save_path.update({res: out_path/args.pid/args.behavior/args.brain_region/res})
             os.makedirs(save_path[res], exist_ok=True) 
             
         np.save(save_path["metrics"] / f"fold_{i+1}.npy", saved_metrics)
         np.save(save_path["y_obs"] / f"fold_{i+1}.npy", saved_y_obs)
         np.save(save_path["y_pred"] / f"fold_{i+1}.npy", saved_y_pred)
+        np.save(save_path["trial_idx"] / f"fold_{i+1}.npy", test)
+        
+        if behavior_type == "discrete":
+            np.save(save_path["y_prob"] / f"fold_{i+1}.npy", saved_y_prob)
             
-    
             
-            
-            
-        
-        
-        
-        
-        
-        
-        
