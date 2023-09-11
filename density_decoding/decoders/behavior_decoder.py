@@ -53,6 +53,7 @@ def generic_decoder(
         y_prob = lr.predict_proba(x_test)
         y_pred = y_prob.argmax(1)
         metrics.update({"acc": accuracy_score(y_test, y_pred)})
+        metrics.update({"auc": roc_auc_score(y_test, y_pred)})
 
         if verbose:
             print(f'accuracy: {metrics["acc"]:.3f}')
