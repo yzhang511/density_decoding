@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import pearsonr
 from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import r2_score, mean_squared_error, explained_variance_score
 from sklearn.metrics import accuracy_score, roc_auc_score
 from density_decoding.utils.utils import get_odd_number
 
@@ -63,10 +63,12 @@ def generic_decoder(
         ridge.fit(x_train, y_train)
         
         y_pred = ridge.predict(x_test)
-        metrics.update({"r2": r2_score(y_test, y_pred)})
+        metrics.update({"r2": explained_variance_score(y_test, y_pred)})
         metrics.update({"mse": mean_squared_error(y_test, y_pred)})
-        metrics.update({"corr": pearsonr(y_test.flatten(), 
-                                         y_pred.flatten())[0]})
+        metrics.update({"corr": np.mean(
+            [pearsonr(y_test[k], y_pred[k])[0] for k in range(len(y_test))]
+        )})
+        
 
         if verbose:
             print(f'R2: {metrics["r2"]:.3f}, MSE: {metrics["mse"]:.3f}, Corr: {metrics["corr"]:.3f}')
@@ -169,10 +171,9 @@ def sliding_window_decoder(
         y_pred = ridge.predict(x_test)
         
         metrics = {}
-        metrics.update({"r2": r2_score(y_test, y_pred)})
+        metrics.update({"r2": explained_variance_score(y_test, y_pred)})
         metrics.update({"mse": mean_squared_error(y_test, y_pred)})
-        metrics.update({"corr": pearsonr(y_test.flatten(), 
-                                         y_pred.flatten())[0]})
+        metrics.update({"corr": pearsonr(y_test, y_pred)[0]})
 
         if verbose:
             print(f'R2: {metrics["r2"]:.3f}, MSE: {metrics["mse"]:.3f}, Corr: {metrics["corr"]:.3f}')
