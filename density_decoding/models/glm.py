@@ -21,8 +21,8 @@ def train_glm(
     train,
     test,
     n_r = 2,
-    learning_rate=1e-2,
-    n_epochs=1000,
+    learning_rate=1e-3,
+    n_epochs=10000,
     ):
     
     _, n_c, n_t = X.shape
