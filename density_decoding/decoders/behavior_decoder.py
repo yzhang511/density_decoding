@@ -57,6 +57,7 @@ def generic_decoder(
 
         if verbose:
             print(f'accuracy: {metrics["acc"]:.3f}')
+            print(f'auc: {metrics["auc"]:.3f}')
       
     elif behavior_type == "continuous":
         ridge = Ridge(alpha=penalty_strength)

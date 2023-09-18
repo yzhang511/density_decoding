@@ -63,7 +63,7 @@ class ModelDataLoader():
 
 
 class ADVI(torch.nn.Module):
-    def __init__(self, n_t, gmm, device):
+    def __init__(self, n_r, n_t, gmm, device, b_prior, U_prior, V_prior):
         super().__init__()
         """
         ADVI model that handles both continuous and discrete behavioral correlates.
@@ -73,9 +73,12 @@ class ADVI(torch.nn.Module):
             gmm: an instance of sklearn's Gaussian mixture model object
             device: the device (CPU or GPU) on which models are allocated
         """
-        
+        self.n_r = n_r
         self.n_t = n_t
         self.n_c, self.n_d = gmm.means_.shape
+        self.b_prior = b_prior
+        self.U_prior = U_prior
+        self.V_prior = V_prior
         self.device = device
         
         # initialize parameters for variational distribution
@@ -86,36 +89,46 @@ class ADVI(torch.nn.Module):
         self.b_mu = torch.nn.Parameter(torch.randn((self.n_c)))
         self.b_log_sig = torch.nn.Parameter(torch.randn((self.n_c)))
         
-        # beta ~ N(beta_mu, exp(beta_log_sig))
-        self.beta_mu = torch.nn.Parameter(torch.randn((self.n_c, self.n_t)))
-        self.beta_log_sig = torch.nn.Parameter(torch.randn((self.n_c, self.n_t)))
+        self.U_mu = torch.nn.Parameter(torch.randn(self.n_c, self.n_r))
+        self.U_log_sig = torch.nn.Parameter(torch.ones(1))
+        
+        self.V_mu = torch.nn.Parameter(torch.randn(self.n_r, self.n_t))
+        self.V_log_sig = torch.nn.Parameter(torch.ones(1))
         
         
-    def _log_prior(self, b_sample, beta_sample):
+    def _log_prior(self, b_sample, U_sample, V_sample):
         """
         Compute the log-likelihood of the prior. With continuous-valued model parameters, 
         we do not need to consider the jacobian term in the ADVI paper.
         """
         
-        lp_b = D.Normal(torch.zeros((self.n_c)).to(self.device), 
-                        torch.ones((self.n_c)).to(self.device)).log_prob(b_sample).sum()
+        lp_b = D.Normal(self.b_prior.to(self.device), 
+                        torch.std(self.b_prior)*torch.ones((self.n_c)).to(self.device)
+        ).log_prob(b_sample).sum()
 
-        lp_beta = D.Normal(torch.zeros((self.n_c, self.n_t)).to(self.device), 
-                           torch.ones((self.n_c, self.n_t)).to(self.device)).log_prob(beta_sample).sum()
+        lp_U = D.Normal(self.U_prior.to(self.device), 
+                        torch.std(self.U_prior)*torch.ones_like(self.U_prior).to(self.device)
+        ).log_prob(U_sample).sum()
         
-        return lp_b + lp_beta
+        lp_V = D.Normal(self.V_prior.to(self.device), 
+                        torch.std(self.V_prior)*torch.ones_like(self.V_prior).to(self.device)
+        ).log_prob(V_sample).sum()
+        
+        return lp_b + lp_U + lp_V
     
     
-    def _log_q(self, b_sample, beta_sample):
+    def _log_q(self, b_sample, U_sample, V_sample):
         """
         Compute the log-likelihood of the variational distribution. 
         """
         
         lq_b = self.b.log_prob(b_sample).sum()
 
-        lq_beta = self.beta.log_prob(beta_sample).sum()
+        lq_U = self.U.log_prob(U_sample).sum()
         
-        return lq_b + lq_beta
+        lq_V = self.V.log_prob(V_sample).sum()
+        
+        return lq_b + lq_U + lq_V
     
     
     def compute_elbo(
@@ -147,8 +160,8 @@ class ADVI(torch.nn.Module):
         unique_trial_idxs = torch.unique(trial_idxs).int()
         n_k = len(unique_trial_idxs)
         
-        elbo = self._log_prior(model_params["b"], model_params["beta"])
-        elbo -= self._log_q(model_params["b"], model_params["beta"])
+        elbo = self._log_prior(model_params["b"], model_params["U"], model_params["V"])
+        elbo -= self._log_q(model_params["b"], model_params["U"], model_params["V"])
 
         if fast_compute:
             
@@ -198,11 +211,14 @@ class ADVI(torch.nn.Module):
         
         # define variational variables
         self.b = D.Normal(self.b_mu, self.b_log_sig.exp())
-        self.beta = D.Normal(self.beta_mu, self.beta_log_sig.exp())
+        self.U = D.Normal(self.U_mu, self.U_log_sig.exp()*torch.ones_like(self.U_mu))
+        self.V = D.Normal(self.V_mu, self.V_log_sig.exp()*torch.ones_like(self.V_mu))
         
         # sample from variational distributions
         b_sample = self.b.rsample()
-        beta_sample = self.beta.rsample()
+        U_sample = self.U.rsample()
+        V_sample = self.V.rsample()
+        beta_sample = torch.einsum("cr,rt->ct", U_sample, V_sample)
                  
         # compute mixing proportions 
         log_lambdas = (b_sample[None,:,None] + beta_sample[None,:,:] * behaviors[:,None,:])
@@ -211,7 +227,8 @@ class ADVI(torch.nn.Module):
         model_params = {
             "pi": log_pis.exp(), 
             "b": b_sample, 
-            "beta": beta_sample, 
+            "U": U_sample, 
+            "V": V_sample, 
             "lambda": log_lambdas.exp()
         }
                                           
@@ -226,9 +243,9 @@ def train_advi(
     time_idxs, 
     batch_idxs, 
     optim, 
-    max_iter=1000,
-    fast_compute=True,
-    stochastic=True
+    max_iter=5000,
+    fast_compute=False,
+    stochastic=False
 ):
     """
     Trains the ADVI model on the provided dataset.
@@ -275,7 +292,7 @@ def train_advi(
                 batch_trial_idxs, 
                 batch_time_idxs, 
                 model_params, 
-                scaling_factor=batch_size/N,
+                scaling_factor=N/batch_size,
                 fast_compute=fast_compute
             )
             loss.backward()
@@ -303,7 +320,7 @@ def train_advi(
                     batch_trial_idxs, 
                     batch_time_idxs, 
                     model_params, 
-                    scaling_factor=batch_size/N,
+                    scaling_factor=N/batch_size,
                     fast_compute=fast_compute
                 )
                 
@@ -400,7 +417,7 @@ def compute_posterior_weight_matrix(
           
     mixture_weights, weight_matrix = mixture_weights[match_idxs], weight_matrix[match_idxs]
 
-    return mixture_weights, weight_matrix
+    return mixture_weights, weight_matrix, np.exp(log_lambdas)
 
 
 def compute_weight_single_process(x, y, post_params):
@@ -428,4 +445,4 @@ def compute_weight_single_process(x, y, post_params):
         if len(x[t]) > 0:
             weight_matrix[:,:,t] = post_gmm.predict_proba(x[t][:,1:]).sum(0)
                 
-    return mixture_weights, weight_matrix
+    return mixture_weights, weight_matrix, np.exp(log_lambdas)

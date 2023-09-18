@@ -716,6 +716,20 @@ def initilize_gaussian_mixtures(
     return gmm
 
 
+def initialize_weight_matrix(gmm, spike_features):
+    
+    n_k = len(spike_features)
+    n_t = len(spike_features[0])
+    n_c = len(gmm.means_)
+    
+    weight_matrix = np.zeros((n_k, n_c, n_t))
+    for k in tqdm(range(n_k), desc="Initialize weight matrix"):
+        for t in range(n_t):
+            if len(spike_features[k][t]) > 0:
+                weight_matrix[k,:,t] = gmm.predict_proba(spike_features[k][t][:,1:]).sum(0)
+    return weight_matrix
+
+
 def bin_spikes(spike_times, align_times, pre_time, post_time, bin_size, weights=None):
     """
     Preprocess behavioral data from IBL. Adapted from:
