@@ -239,6 +239,11 @@ class IBLDataLoader(BaseDataLoader):
     def check_available_brain_regions(self):
         """Check available brain regions for decoding."""
         print(np.unique(self.clusters["acronym"]))
+        
+        
+    def load_spike_locations(self, spike_channels):
+        """Get anatomical location (brain region) of each spike given its channel."""
+        return self.channels["acronym"][spike_channels.astype(int)]
 
         
     def _partition_brain_regions(
