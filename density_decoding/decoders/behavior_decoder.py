@@ -64,8 +64,12 @@ def generic_decoder(
         ridge.fit(x_train, y_train)
         
         y_pred = ridge.predict(x_test)
-        metrics.update({"r2": explained_variance_score(y_test, y_pred)})
-        metrics.update({"mse": mean_squared_error(y_test, y_pred)})
+        metrics.update({"r2": np.mean(
+            [r2_score(y_test[k], y_pred[k]) for k in range(len(y_test))]
+        )})
+        metrics.update({"mse": np.mean(
+            [mean_squared_error(y_test[k], y_pred[k]) for k in range(len(y_test))]
+        )})
         metrics.update({"corr": np.mean(
             [pearsonr(y_test[k], y_pred[k])[0] for k in range(len(y_test))]
         )})
@@ -172,7 +176,7 @@ def sliding_window_decoder(
         y_pred = ridge.predict(x_test)
         
         metrics = {}
-        metrics.update({"r2": explained_variance_score(y_test, y_pred)})
+        metrics.update({"r2": r2_score(y_test, y_pred)})
         metrics.update({"mse": mean_squared_error(y_test, y_pred)})
         metrics.update({"corr": pearsonr(y_test, y_pred)[0]})
 
@@ -212,4 +216,3 @@ def sliding_window_decoder(
         return y_train, y_test, y_pred, y_prob, metrics
     else:
         return y_train, y_test, y_pred, metrics
-
