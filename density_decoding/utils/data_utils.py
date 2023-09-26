@@ -512,7 +512,8 @@ class IBLDataLoader(BaseDataLoader):
             behaviors: size (n_k,) or (n_k, n_t) array for discrete or continuous variables
         """
         
-        valid_types = ["choice", "prior", "motion_energy", "wheel_velocity", "wheel_speed"]
+        valid_types = ["choice", "prior", "motion_energy", "wheel_velocity", "wheel_speed",
+                       "pupil_diameter", "paw_speed"]
         assert behavior_type in valid_types, f"invalid behavior type; expected one of {valid_types}."
         
         behaviors = self.behave_dict[behavior_type]
@@ -578,15 +579,15 @@ class IBLDataLoader(BaseDataLoader):
         # TO DO: the data quality of paw speed and pupil diameter is unreliable,
         #        wait till lightning-pose is in place.
         # get right paw speed (closer to camera)
-        # paw_speed = dlc.get_speed(left_dlc["dlc"], left_dlc["times"], camera="left", feature="paw_r")
+        paw_speed = dlc.get_speed(left_dlc["dlc"], left_dlc["times"], camera="left", feature="paw_r")
 
         # get pupil diameter
-        # if "features" in left_dlc.keys():
-        #     pupil_diameter = left_dlc.pop("features")["pupilDiameter_smooth"]
-        #     if np.sum(np.isnan(pupil_diameter)) > 0:
-        #         pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
-        # else:
-        #     pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
+        if "features" in left_dlc.keys():
+            pupil_diameter = left_dlc.pop("features")["pupilDiameter_smooth"]
+            if np.sum(np.isnan(pupil_diameter)) > 0:
+                pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
+        else:
+            pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
 
         # get wheel velocity
         wheel = self.one.load_object(self.eid, "wheel")
@@ -606,19 +607,19 @@ class IBLDataLoader(BaseDataLoader):
                                   self.t_after, self.bin_size, 
                                   weights=left_dlc["ROIMotionEnergy"])
         # paw speed
-        # bin_paw_speed, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
-        #                             self.t_after, self.bin_size, weights=paw_speed)
+        bin_paw_speed, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
+                                    self.t_after, self.bin_size, weights=paw_speed)
         # pupil diameter
-        # bin_pup_dia, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
-        #                           self.t_after, self.bin_size, weights=pupil_diameter)
+        bin_pup_dia, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
+                                  self.t_after, self.bin_size, weights=pupil_diameter)
         
         behave_dict = {}
         behave_dict.update({"choice": choice})
         behave_dict.update({"motion_energy": bin_left_me})
         behave_dict.update({"wheel_velocity": bin_vel})
         behave_dict.update({"wheel_speed": np.abs(bin_vel)})
-        # behave_dict.update({"paw_speed": bin_paw_speed})
-        # behave_dict.update({"pupil_diameter": bin_pup_dia})
+        behave_dict.update({"paw_speed": bin_paw_speed})
+        behave_dict.update({"pupil_diameter": bin_pup_dia})
         
         # load priors
         try:
