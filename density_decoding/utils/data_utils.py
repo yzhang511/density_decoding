@@ -19,17 +19,19 @@ from sklearn.mixture import GaussianMixture
 class BaseDataLoader():
     def __init__(
         self, 
-        trial_length,
+        t_before,
+        t_after,
         n_t_bins
     ):
         """
         A general data loader that works for all data types.
         
         Args:
-            trial_length: duration of each trial (in seconds)
             n_t_bins: number of time bins within each trial
         """
-        self.trial_length = trial_length
+        self.t_before = t_before
+        self.t_after = t_after
+        self.trial_length = self.t_before + self.t_after
         self.n_t_bins = n_t_bins
         self.t_binning = np.arange(0, self.trial_length, step = self.trial_length/self.n_t_bins)
         self.type = "custom"
@@ -195,19 +197,19 @@ class IBLDataLoader(BaseDataLoader):
     def __init__(
         self, 
         pid, 
-        trial_length,
         n_t_bins,
         base_url = "https://openalyx.internationalbrainlab.org",
         password = "international",
-        prior_path=None
+        prior_path=None,
+        t_before = 0.5,
+        t_after = 1
     ):
-        super().__init__(trial_length, n_t_bins)
+        super().__init__(t_before, t_after, n_t_bins)
         """
         A data loader specific to IBL data.
         
         Args:
             pid: probe ID
-            trial_length: duration of each trial (in seconds)
             n_t_bins: number of time bins within each trial
         """
         self.pid = pid
@@ -226,9 +228,10 @@ class IBLDataLoader(BaseDataLoader):
         print(f"pid: {self.pid}")
         
         # load meta data from IBL
-        self.t_before, self.t_after = trial_length * (1/3), trial_length * (2/3)
-        self.bin_size = trial_length / n_t_bins
-        stim_on_times = self.one.load_object(self.eid, "trials", collection="alf")["stimOn_times"]
+        self.t_before, self.t_after = t_before, t_after
+        self.trial_length = self.t_before + self.t_after
+        self.bin_size = self.trial_length / n_t_bins
+        stim_on_times = self.one.load_object(self.eid, "trials", collection="alf")["stimOn_times"] 
         self.behave_dict, valid_trials = self._featurize_behavior(prior_path=prior_path)
         self.stim_on_times = stim_on_times[valid_trials]
         self.n_trials = self.stim_on_times.shape[0]
@@ -481,8 +484,8 @@ class IBLDataLoader(BaseDataLoader):
         for k in tqdm(range(self.n_trials), desc="Compute spike count"):
             
             mask = np.logical_and(
-                spike_train[:,0] >= self.stim_on_times[k] - 0.5,
-                spike_train[:,0] <= self.stim_on_times[k] + 1.0
+                spike_train[:,0] >= self.stim_on_times[k] - self.t_before,
+                spike_train[:,0] <= self.stim_on_times[k] + self.t_after
             )
             sub_spike_train = spike_train[mask]
             
@@ -528,7 +531,7 @@ class IBLDataLoader(BaseDataLoader):
 
         # load trials
         trials = self.one.load_object(self.eid, "trials")
-        trial_idx = np.arange(trials["stimOn_times"].shape[0])
+        trial_idx = np.arange(trials["firstMovement_times"].shape[0])
 
         # filter out trials with no choice
         choice_filter = np.where(trials["choice"] != 0)
@@ -536,9 +539,9 @@ class IBLDataLoader(BaseDataLoader):
         trial_idx = trial_idx[choice_filter]
 
         # filter out trials with no contrast
-        contrast_filter = ~np.logical_or(trials["contrastLeft"] == 0, trials["contrastRight"] == 0)
-        trials = {key: trials[key][contrast_filter] for key in trials.keys()}
-        trial_idx = trial_idx[contrast_filter]
+        # contrast_filter = ~np.logical_or(trials["contrastLeft"] == 0, trials["contrastRight"] == 0)
+        # trials = {key: trials[key][contrast_filter] for key in trials.keys()}
+        # trial_idx = trial_idx[contrast_filter]
         nan_idx = np.c_[np.isnan(trials["stimOn_times"]), 
                         np.isnan(trials["firstMovement_times"]), 
                         np.isnan(trials["goCue_times"]),
@@ -551,7 +554,7 @@ class IBLDataLoader(BaseDataLoader):
         trial_idx = trial_idx[kept_idx]
 
         # select active trials
-        ref_event = trials["firstMovement_times"]
+        ref_event = trials["firstMovement_times"] 
         diff1 = ref_event - trials["stimOn_times"]
         diff2 = trials["feedback_times"] - ref_event
         t_select1 = np.logical_and(diff1 > 0.0, diff1 < self.t_before - 0.1)
@@ -577,7 +580,7 @@ class IBLDataLoader(BaseDataLoader):
         left_dlc["dlc"] = dlc.likelihood_threshold(left_dlc["dlc"], threshold=0)
 
         # TO DO: the data quality of paw speed and pupil diameter is unreliable,
-        #        wait till lightning-pose is in place.
+        #        switch to lightning-pose later.
         # get right paw speed (closer to camera)
         paw_speed = dlc.get_speed(left_dlc["dlc"], left_dlc["times"], camera="left", feature="paw_r")
 
@@ -596,7 +599,7 @@ class IBLDataLoader(BaseDataLoader):
         vel = vel[~np.isnan(vel)]
 
         # time binning
-        n_tbins = int((self.t_after + self.t_before) / self.bin_size)
+        n_tbins = int(self.trial_length / self.bin_size)
         # choice
         choice = (trials["choice"] > 0 ).astype(int) 
         # wheel velocity
