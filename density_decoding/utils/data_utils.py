@@ -516,7 +516,7 @@ class IBLDataLoader(BaseDataLoader):
             behaviors: size (n_k,) or (n_k, n_t) array for discrete or continuous variables
         """
         
-        valid_types = ["choice", "prior", "contrast",
+        valid_types = ["choice", "prior", "contrast", "reward",
                        "motion_energy", "wheel_velocity", "wheel_speed",
                        "pupil_diameter", "paw_speed"]
         assert behavior_type in valid_types, f"invalid behavior type; expected one of {valid_types}."
@@ -607,6 +607,10 @@ class IBLDataLoader(BaseDataLoader):
         n_tbins = int(self.trial_length / self.bin_size)
         # choice
         choice = (trials["choice"] > 0 ).astype(int) 
+        
+        # reward
+        reward = (trials["rewardVolume"] > 1) * 1.
+        
         # wheel velocity
         bin_vel, _ = bin_norm(wheel_timestamps, ref_event, self.t_before, 
                               self.t_after, self.bin_size, weights=vel)
@@ -624,6 +628,7 @@ class IBLDataLoader(BaseDataLoader):
         behave_dict = {}
         behave_dict.update({"choice": choice})
         behave_dict.update({"contrast": contrast})
+        behave_dict.update({"reward": reward})
         behave_dict.update({"motion_energy": bin_left_me})
         behave_dict.update({"wheel_velocity": bin_vel})
         behave_dict.update({"wheel_speed": np.abs(bin_vel)})
