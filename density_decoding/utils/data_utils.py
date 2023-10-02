@@ -202,7 +202,7 @@ class IBLDataLoader(BaseDataLoader):
         password = "international",
         prior_path=None,
         t_before = 0.5,
-        t_after = 1
+        t_after = 1.
     ):
         super().__init__(t_before, t_after, n_t_bins)
         """
@@ -228,6 +228,7 @@ class IBLDataLoader(BaseDataLoader):
         print(f"pid: {self.pid}")
         
         # load meta data from IBL
+        assert t_before > 0.1, "Need at least 0.1 sec before stimulus onset!"
         self.t_before, self.t_after = t_before, t_after
         self.trial_length = self.t_before + self.t_after
         self.bin_size = self.trial_length / n_t_bins
@@ -515,7 +516,8 @@ class IBLDataLoader(BaseDataLoader):
             behaviors: size (n_k,) or (n_k, n_t) array for discrete or continuous variables
         """
         
-        valid_types = ["choice", "prior", "motion_energy", "wheel_velocity", "wheel_speed",
+        valid_types = ["choice", "prior", "contrast",
+                       "motion_energy", "wheel_velocity", "wheel_speed",
                        "pupil_diameter", "paw_speed"]
         assert behavior_type in valid_types, f"invalid behavior type; expected one of {valid_types}."
         
@@ -539,9 +541,9 @@ class IBLDataLoader(BaseDataLoader):
         trial_idx = trial_idx[choice_filter]
 
         # filter out trials with no contrast
-        # contrast_filter = ~np.logical_or(trials["contrastLeft"] == 0, trials["contrastRight"] == 0)
-        # trials = {key: trials[key][contrast_filter] for key in trials.keys()}
-        # trial_idx = trial_idx[contrast_filter]
+        contrast_filter = ~np.logical_or(trials["contrastLeft"] == 0, trials["contrastRight"] == 0)
+        trials = {key: trials[key][contrast_filter] for key in trials.keys()}
+        trial_idx = trial_idx[contrast_filter]
         nan_idx = np.c_[np.isnan(trials["stimOn_times"]), 
                         np.isnan(trials["firstMovement_times"]), 
                         np.isnan(trials["goCue_times"]),
@@ -569,6 +571,9 @@ class IBLDataLoader(BaseDataLoader):
 
         n_trials = n_active_trials
         print("number of trials found: {} (active: {})".format(n_trials, n_active_trials))
+        
+        # load stimulus contrast 
+        contrast = np.c_[trials['contrastLeft'], trials['contrastRight']]
 
         # load in dlc
         left_dlc = self.one.load_object(
@@ -618,6 +623,7 @@ class IBLDataLoader(BaseDataLoader):
         
         behave_dict = {}
         behave_dict.update({"choice": choice})
+        behave_dict.update({"contrast": contrast})
         behave_dict.update({"motion_energy": bin_left_me})
         behave_dict.update({"wheel_velocity": bin_vel})
         behave_dict.update({"wheel_speed": np.abs(bin_vel)})
