@@ -228,7 +228,6 @@ class IBLDataLoader(BaseDataLoader):
         print(f"pid: {self.pid}")
         
         # load meta data from IBL
-        assert t_before > 0.1, "Need at least 0.1 sec before stimulus onset!"
         self.t_before, self.t_after = t_before, t_after
         self.trial_length = self.t_before + self.t_after
         self.bin_size = self.trial_length / n_t_bins
@@ -557,15 +556,15 @@ class IBLDataLoader(BaseDataLoader):
 
         # select active trials
         ref_event = trials["firstMovement_times"] 
-        diff1 = ref_event - trials["stimOn_times"]
-        diff2 = trials["feedback_times"] - ref_event
-        t_select1 = np.logical_and(diff1 > 0.0, diff1 < self.t_before - 0.1)
-        t_select2 = np.logical_and(diff2 > 0.0, diff2 < self.t_after - 0.1)
-        t_select = np.logical_and(t_select1, t_select2)
+        # diff1 = ref_event - trials["stimOn_times"]
+        # diff2 = trials["feedback_times"] - ref_event
+        # t_select1 = np.logical_and(diff1 > 0.0, diff1 < self.t_before - 0.1)
+        # t_select2 = np.logical_and(diff2 > 0.0, diff2 < self.t_after - 0.1)
+        # t_select = np.logical_and(t_select1, t_select2)
 
-        trials = {key: trials[key][t_select] for key in trials.keys()}
-        trial_idx = trial_idx[t_select]
-        ref_event = ref_event[t_select]
+        # trials = {key: trials[key][t_select] for key in trials.keys()}
+        # trial_idx = trial_idx[t_select]
+        # ref_event = ref_event[t_select]
 
         n_active_trials = ref_event.shape[0]
 
