@@ -73,7 +73,6 @@ def generic_decoder(
         metrics.update({"corr": np.mean(
             [pearsonr(y_test[k], y_pred[k])[0] for k in range(len(y_test))]
         )})
-        
 
         if verbose:
             print(f'R2: {metrics["r2"]:.3f}, MSE: {metrics["mse"]:.3f}, Corr: {metrics["corr"]:.3f}')

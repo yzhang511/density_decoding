@@ -5,7 +5,9 @@ import torch
 import warnings
 
 from density_decoding.utils.utils import set_seed, to_device
-from density_decoding.utils.data_utils import initilize_gaussian_mixtures
+from density_decoding.utils.data_utils import initilize_gaussian_mixtures, initialize_weight_matrix
+
+from density_decoding.models.glm import train_glm
 
 from density_decoding.models.advi import (
     ModelDataLoader, 
@@ -38,13 +40,14 @@ def decode_pipeline(
     test,
     gmm_init_method="isosplit",
     inference="advi",
-    batch_size=1,
-    learning_rate=1e-2,
-    max_iter=500,
-    cavi_max_iter=10,
+    batch_size=32,
+    learning_rate=1e-3,
+    weight_decay=1e-3,
+    max_iter=5000,
+    cavi_max_iter=30,
     fast_compute=True,
     stochastic=True,
-    penalty_strength=1,
+    penalty_strength=1000,
     device=torch.device("cpu"),
     n_workers=4
 ):
@@ -85,6 +88,11 @@ def decode_pipeline(
         n_c = gmm.means_.shape[0]
         n_d = gmm.means_.shape[1]
         print(f"Initialized a mixture with {n_c} components.")
+        
+        init_weight_matrix = initialize_weight_matrix(
+            gmm,
+            bin_spike_features, 
+        )
 
         model_data_loader = ModelDataLoader(
             bin_spike_features,
@@ -101,12 +109,28 @@ def decode_pipeline(
         train_spike_features, train_trial_idxs, train_time_idxs, \
         test_spike_features, test_trial_idxs, test_time_idxs = \
         model_data_loader.split_train_test(train, test)
+        
+        if behavior_type == "discrete":
+            bin_behaviors = bin_behaviors.reshape(-1,1)
+        
+        glm, losses = train_glm(
+            X = init_weight_matrix, 
+            Y = bin_behaviors, 
+            train = train,
+            test = test,
+            learning_rate = 1e-3,
+            n_epochs = 5000
+        )
 
         if inference == "advi":
             
             advi = ADVI(
+                n_r = 2,
                 n_t=n_t, 
                 gmm=gmm, 
+                U_prior = glm.U.detach(),
+                V_prior = glm.V.detach(),
+                b_prior = glm.b.detach(),
                 device=device
             )
             
@@ -119,28 +143,26 @@ def decode_pipeline(
                 trial_idxs = to_device(train_trial_idxs, device), 
                 time_idxs = to_device(train_time_idxs, device), 
                 batch_idxs= batch_idxs, 
-                optim = torch.optim.Adam(advi.parameters(), lr=learning_rate),
+                optim = torch.optim.Adam(advi.parameters(), lr=learning_rate, weight_decay=weight_decay),
                 max_iter=max_iter,
-                fast_compute=fast_compute,
-                stochastic=stochastic
             )
             
-            parameters = advi.parameters()
-            detached_parameters = [param.detach_() for param in parameters]
             post_params = {
-                "b": advi.b.loc.numpy(),
-                "beta": advi.beta.loc.numpy(),
-                "means": advi.means.numpy(),
-                "covs": advi.covs.numpy(),
+                "b": advi.b.loc.detach().numpy(),
+                "U": advi.U.loc.detach().numpy(),
+                "V": advi.V.loc.detach().numpy(),
+                "beta": advi.U.loc.detach().numpy() @ advi.V.loc.detach().numpy(),
+                "means": advi.means.detach().numpy(),
+                "covs": advi.covs.detach().numpy(),
             }
 
-            mixture_weights, weight_matrix = compute_posterior_weight_matrix(
-                bin_spike_features, y_train, y_pred, train, test, post_params, n_workers
+            mixture_weights, weight_matrix, firing_rates = compute_posterior_weight_matrix(
+                bin_spike_features, y_train, y_pred, train, test, post_params, n_workers=1
             )
 
         else:
-            
-            init_lam, init_p = compute_lambda_for_cavi(bin_spike_features, bin_behaviors, gmm)
+        
+            init_lam, init_p = compute_lambda_for_cavi(bin_spike_features, bin_behaviors.squeeze(), gmm)
 
             train_behaviors = torch.zeros(train_spike_features.shape[0]).reshape(-1,1)
             for i, k in enumerate(train):
