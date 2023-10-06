@@ -555,7 +555,8 @@ class IBLDataLoader(BaseDataLoader):
         trial_idx = trial_idx[kept_idx]
 
         # select active trials
-        ref_event = trials["firstMovement_times"] 
+        ref_event = trials["stimOn_times"] 
+        # ref_event = trials["firstMovement_times"] 
         # diff1 = ref_event - trials["stimOn_times"]
         # diff2 = trials["feedback_times"] - ref_event
         # t_select1 = np.logical_and(diff1 > 0.0, diff1 < self.t_before - 0.1)
