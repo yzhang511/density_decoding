@@ -556,16 +556,16 @@ class IBLDataLoader(BaseDataLoader):
 
         # select active trials
         ref_event = trials["stimOn_times"] 
-        # ref_event = trials["firstMovement_times"] 
-        # diff1 = ref_event - trials["stimOn_times"]
-        # diff2 = trials["feedback_times"] - ref_event
-        # t_select1 = np.logical_and(diff1 > 0.0, diff1 < self.t_before - 0.1)
-        # t_select2 = np.logical_and(diff2 > 0.0, diff2 < self.t_after - 0.1)
-        # t_select = np.logical_and(t_select1, t_select2)
+#         ref_event = trials["firstMovement_times"] 
+#         diff1 = ref_event - trials["stimOn_times"]
+#         diff2 = trials["feedback_times"] - ref_event
+#         t_select1 = np.logical_and(diff1 > 0.0, diff1 < self.t_before - 0.1)
+#         t_select2 = np.logical_and(diff2 > 0.0, diff2 < self.t_after - 0.1)
+#         t_select = np.logical_and(t_select1, t_select2)
 
-        # trials = {key: trials[key][t_select] for key in trials.keys()}
-        # trial_idx = trial_idx[t_select]
-        # ref_event = ref_event[t_select]
+#         trials = {key: trials[key][t_select] for key in trials.keys()}
+#         trial_idx = trial_idx[t_select]
+#         ref_event = ref_event[t_select]
 
         n_active_trials = ref_event.shape[0]
 
@@ -807,3 +807,4 @@ def sliding_window_behaviors(y, delta=5):
     y_window = np.vstack(y_window)
     
     return y_window, y_pos
+
