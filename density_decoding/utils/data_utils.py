@@ -201,8 +201,10 @@ class IBLDataLoader(BaseDataLoader):
         base_url = "https://openalyx.internationalbrainlab.org",
         password = "international",
         prior_path=None,
+        align_time_type = "stimOn_times",
         t_before = 0.5,
-        t_after = 1.
+        t_after = 1.,
+        cache_dir = None
     ):
         super().__init__(t_before, t_after, n_t_bins)
         """
@@ -217,7 +219,15 @@ class IBLDataLoader(BaseDataLoader):
         
         # load spike sorting data from IBL
         ba = AllenAtlas()
-        self.one = ONE(base_url=base_url, password=password, silent = True)
+        if cache_dir:
+            self.one = ONE(
+                cache_dir=cache_dir, base_url=base_url, password=password, silent=True
+            )
+        else:
+            self.one = ONE(
+                base_url=base_url, password=password, silent=True
+            )
+            cache_dir = self.one.cache_dir
         self.eid, probe = self.one.pid2eid(self.pid)
         self.sl = SpikeSortingLoader(pid = self.pid, one = self.one, atlas = ba)
         self.spikes, self.clusters, self.channels = self.sl.load_spike_sorting()
@@ -231,12 +241,13 @@ class IBLDataLoader(BaseDataLoader):
         self.t_before, self.t_after = t_before, t_after
         self.trial_length = self.t_before + self.t_after
         self.bin_size = self.trial_length / n_t_bins
-        stim_on_times = self.one.load_object(self.eid, "trials", collection="alf")["stimOn_times"] 
+        self.align_time_type = align_time_type
+        align_time = self.one.load_object(self.eid, "trials", collection="alf")[align_time_type] 
         self.behave_dict, valid_trials = self._featurize_behavior(prior_path=prior_path)
-        self.stim_on_times = stim_on_times[valid_trials]
-        self.n_trials = self.stim_on_times.shape[0]
+        self.align_time = align_time[valid_trials]
+        self.n_trials = self.align_time.shape[0]
         
-        print(f"found {self.n_trials} trials from {self.stim_on_times[0]:.2f} to {self.stim_on_times[-1]:.2f} sec.")
+        print(f"found {self.n_trials} trials from {self.align_time[0]:.2f} to {self.align_time[-1]:.2f} sec.")
         
 
     def check_available_brain_regions(self):
@@ -282,8 +293,8 @@ class IBLDataLoader(BaseDataLoader):
         trials = []
         for i in range(self.n_trials):
             mask = np.logical_and(
-                data[:,0] >= self.stim_on_times[i] - self.t_before,   
-                data[:,0] <= self.stim_on_times[i] + self.t_after
+                data[:,0] >= self.align_time[i] - self.t_before,   
+                data[:,0] <= self.align_time[i] + self.t_after
             )
             trials.append(data[mask])
             
@@ -444,8 +455,8 @@ class IBLDataLoader(BaseDataLoader):
             spike_times, 
             spike_channels, 
             spike_features,
-            self.stim_on_times - self.t_before, 
-            self.stim_on_times + self.t_after
+            self.align_time - self.t_before, 
+            self.align_time + self.t_after
         )
         
         return bin_spike_features, bin_trial_idxs, bin_time_idxs
@@ -484,8 +495,8 @@ class IBLDataLoader(BaseDataLoader):
         for k in tqdm(range(self.n_trials), desc="Compute spike count"):
             
             mask = np.logical_and(
-                spike_train[:,0] >= self.stim_on_times[k] - self.t_before,
-                spike_train[:,0] <= self.stim_on_times[k] + self.t_after
+                spike_train[:,0] >= self.align_time[k] - self.t_before,
+                spike_train[:,0] <= self.align_time[k] + self.t_after
             )
             sub_spike_train = spike_train[mask]
             
@@ -515,7 +526,7 @@ class IBLDataLoader(BaseDataLoader):
             behaviors: size (n_k,) or (n_k, n_t) array for discrete or continuous variables
         """
         
-        valid_types = ["choice", "prior", "contrast", "reward",
+        valid_types = ["choice", "prior", "pLeft", "contrast", "reward",
                        "motion_energy", "wheel_velocity", "wheel_speed",
                        "pupil_diameter", "paw_speed"]
         assert behavior_type in valid_types, f"invalid behavior type; expected one of {valid_types}."
@@ -532,7 +543,7 @@ class IBLDataLoader(BaseDataLoader):
 
         # load trials
         trials = self.one.load_object(self.eid, "trials")
-        trial_idx = np.arange(trials["firstMovement_times"].shape[0])
+        trial_idx = np.arange(trials[self.align_time_type].shape[0])
 
         # filter out trials with no choice
         choice_filter = np.where(trials["choice"] != 0)
@@ -550,12 +561,12 @@ class IBLDataLoader(BaseDataLoader):
                         np.isnan(trials["feedback_times"]),
                         np.isnan(trials["stimOff_times"])]
         kept_idx = np.sum(nan_idx, axis=1) == 0
-
+        
         trials = {key: trials[key][kept_idx] for key in trials.keys()}
         trial_idx = trial_idx[kept_idx]
 
         # select active trials
-        ref_event = trials["stimOn_times"] 
+        ref_event = trials[self.align_time_type] 
 #         ref_event = trials["firstMovement_times"] 
 #         diff1 = ref_event - trials["stimOn_times"]
 #         diff2 = trials["feedback_times"] - ref_event
@@ -574,6 +585,9 @@ class IBLDataLoader(BaseDataLoader):
         
         # load stimulus contrast 
         contrast = np.c_[trials['contrastLeft'], trials['contrastRight']]
+        
+        # load pLeft
+        pLeft = trials["probabilityLeft"]
 
         # load in dlc
         left_dlc = self.one.load_object(
@@ -627,6 +641,7 @@ class IBLDataLoader(BaseDataLoader):
         
         behave_dict = {}
         behave_dict.update({"choice": choice})
+        behave_dict.update({"pLeft": pLeft})
         behave_dict.update({"contrast": contrast})
         behave_dict.update({"reward": reward})
         behave_dict.update({"motion_energy": bin_left_me})
