@@ -60,6 +60,13 @@ Example usage can be found with `tutorials.ipynb` and `in_depth_tutorials.ipynb`
 
 In `in_depth_tutorials.ipynb`, we mainly focus on IBL public dataset and performed standard analysis presented in the paper. Additionally, we include clusterless unsupervised analysis and provide visualizations of the firing rates $\lambda$, weight matrix $W$ as well as $\beta, U, V$ matrices which are learned through variational inference.
 
+<!-- LICENSE -->
+## :classical_building: License
+
+Distributed under the MIT License. See [`LICENSE.txt`][license-url] for more information.
+
+<p align="right">(<a href="#readme-top">Back to top</a>)</p>
+
 ## ✏️ Cite Us
 
 If you found the paper useful, please cite us:
