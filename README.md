@@ -67,7 +67,7 @@ In `in_depth_tutorials.ipynb`, we mainly focus on IBL public dataset and perform
 <!-- LICENSE -->
 ## :classical_building: License
 
-Distributed under the MIT License. See [`LICENSE.txt`][license-url] for more information.
+Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 <p align="right">(<a href="#readme-top">Back to top</a>)</p>
 
