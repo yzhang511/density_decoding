@@ -106,6 +106,7 @@ if __name__ == "__main__":
     
     # -- CV
     kf = KFold(n_splits=5, shuffle=True, random_state=seed)
+    # kf = KFold(n_splits=5, shuffle=False)
     for i, (train, test) in enumerate(kf.split(behavior)):
 
         print(f"Fold {i+1} / 5:")
