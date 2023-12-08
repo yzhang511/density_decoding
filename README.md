@@ -11,6 +11,7 @@
     </picture>
 </a>
 </div>
+
 ## Density-Based Spike Sorting-Free Decoding
 
 
