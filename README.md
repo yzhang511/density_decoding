@@ -12,8 +12,8 @@ We benchmark our method with an extensive suite of recordings from different ani
 ## Installation
 Create an environment and install this package and any other dependencies:
 ```
-conda create --name <ENVIRONMENT_NAME> python=3.8
-conda activate <ENVIRONMENT_NAME>
+conda create --name density_decoding python=3.8
+conda activate density_decoding
 git clone https://github.com/yzhang511/density_decoding.git
 cd density_decoding
 pip install -e .
