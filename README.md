@@ -2,12 +2,12 @@
 
 <!-- PROJECT LOGO -->
 
-<div width="150" align="right">
+<div width="100" align="right">
 <a href="https://github.com/yzhang511/density_decoding">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png">
       <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png">
-      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png"  width="150" align="right">
+      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png"  width="100" align="right">
     </picture>
 </a>
 </div>
@@ -20,6 +20,26 @@ We implemented a spike sorting-free decoding method that directly models the dis
 We benchmark our method with an extensive suite of recordings from different animals and probe geometries, demonstrating that our proposed decoder can consistently outperform current methods based on thresholding (i.e. multi-unit activity) and spike sorting.
 
 **[NeurIPS 2023 (spotlight)]** [Bypassing spike sorting: Density-based decoding using spike localization from dense multielectrode probes](https://www.biorxiv.org/content/10.1101/2023.09.21.558869v1)
+
+<div align="right">
+<a href="https://github.com/yzhang511/density_decoding">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/spike_localization_features.png">
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/spike_localization_features.png">
+      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/images/spike_localization_features.png"  align="right">
+    </picture>
+</a>
+</div>
+
+<div align="right">
+<a href="https://github.com/yzhang511/density_decoding">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/model_diagram.png">
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/model_diagram.png">
+      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/images/model_diagram.png"  align="right">
+    </picture>
+</a>
+</div>
 
 
 ## Installation
