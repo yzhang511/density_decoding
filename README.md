@@ -58,9 +58,19 @@ pip install -e .
 <p align="right">(<a href="#readme-top">Back to top</a>)</p>
 
 ## ⚡️ Quick Start
-Example usage can be found with `tutorials.ipynb` and `in_depth_tutorials.ipynb`. In `tutorials.ipynb`, we demonstrate decoding using custom datasets or IBL public dataset. For a custom dataset, user should provide spike features obtained from [this pipeline](https://github.com/int-brain-lab/spikes_localization_registration) and corresponding behavior over time to this decoder. For the public IBL dataset, please download it directly through the ONE API and provide it to this model. 
+Example usage can be found in [tutorials](https://github.com/yzhang511/density_decoding/tree/main/tutorials): 
 
-In `in_depth_tutorials.ipynb`, we mainly focus on IBL public dataset and performed standard analysis presented in the paper. Additionally, we include clusterless unsupervised analysis and provide visualizations of the firing rates $\lambda$, weight matrix $W$ as well as $\beta, U, V$ matrices which are learned through variational inference.
+0. `data_preprocessing`: Users can provide their own preprocessed spike features as decoder input. We also provide a tutorial for running the spike localization pipeline to extract high-resolution spatial features from Neuropixel probes. ⚠️ This notebook is under development. For now, please refer to [this pipeline](https://github.com/int-brain-lab/spikes_localization_registration) for documentation on spike feature extraction.
+
+1. `decoding_pipeline`: We demonstrate our decoding pipeline using custom datasets or IBL public datasets. For a custom dataset, user should provide their own spike features and behaviors as decoder inputs. For public IBL datasets, please download recordings directly through [ONE API](https://int-brain-lab.github.io/iblenv/notebooks_external/one_quickstart.html) and follow the notebook `data_preprocessing` to obtain spike features. 
+
+2. `downstream_inference`: We use IBL public datasets as demo to show how to perform standard analysis in the paper. This notebook is a break-down of our decoding pipeline.
+
+<p align="right">(<a href="#readme-top">Back to top</a>)</p>
+
+## :computer: CLI
+
+`density_decoding` comes with a quick [CLI](https://github.com/yzhang511/density_decoding/tree/main/scripts) decoding pipeline tool. The tool is under development.
 
 <p align="right">(<a href="#readme-top">Back to top</a>)</p>
 
