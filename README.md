@@ -1,4 +1,16 @@
+<a name="readme-top" id="readme-top"></a>
 
+<!-- PROJECT LOGO -->
+
+<div width="150" align="right">
+<a href="https://github.com/yzhang511/density_decoding">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png">
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png">
+      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png"  width="150" align="right">
+    </picture>
+</a>
+</div>
 ## Density-Based Spike Sorting-Free Decoding
 
 
