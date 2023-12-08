@@ -1,7 +1,5 @@
 
-## ⚠️ Work in progress code repository
-
-**We are in the process of implementing an organized and documented pipeline and we will update this page accordingly.**
+## Density-Based Spike Sorting-Free Decoding
 
 
 We implemented a spike sorting-free decoding method that directly models the distribution of extracted spike features using a mixture of Gaussians (MoG) encoding the uncertainty of spike assignments, without aiming to solve the spike clustering problem explicitly. We allow the mixing proportion of the MoG to change over time in response to the behavior and develop variational inference methods to fit the resulting model and to perform decoding. 
