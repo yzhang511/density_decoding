@@ -39,9 +39,6 @@
 </a>
 </div>
 
-**[Experiments]** We benchmark our method with an extensive suite of recordings from different animals and probe geometries, demonstrating that our proposed decoder can consistently outperform
-current methods based on thresholding (i.e. multi-unit activity) and spike sorting.
-
 **[Full paper]** [Bypassing spike sorting: Density-based decoding using spike localization from dense multielectrode probes](https://www.biorxiv.org/content/10.1101/2023.09.21.558869v1)
 
 <p align="right">(<a href="#readme-top">Back to top</a>)</p>
