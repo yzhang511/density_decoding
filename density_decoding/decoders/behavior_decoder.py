@@ -1,9 +1,10 @@
 import numpy as np
 from scipy.stats import pearsonr
 from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.metrics import r2_score, mean_squared_error, explained_variance_score
+from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.metrics import accuracy_score, roc_auc_score
 from density_decoding.utils.utils import get_odd_number
+from sklearn.model_selection import GridSearchCV
 
 
 def generic_decoder(
@@ -12,7 +13,6 @@ def generic_decoder(
     train, 
     test,
     behavior_type,
-    penalty_strength=1,
     verbose=False,
     seed=666,
     return_prob=False
@@ -40,14 +40,11 @@ def generic_decoder(
     x_train, x_test = x[train], x[test]
     y_train, y_test = y[train], y[test]
     
+    penalty = [1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 1e2, 1e3, 1e4]
+    
     metrics = {}
     if behavior_type == "discrete":
-        lr = LogisticRegression(random_state=seed, 
-                                max_iter=1e4, 
-                                tol = 0.01, 
-                                solver='liblinear',
-                                penalty="l2", 
-                                C=1/penalty_strength)
+        lr = GridSearchCV(LogisticRegression(solver="liblinear"), {"C": penalty})
         lr.fit(x_train, y_train)
 
         y_prob = lr.predict_proba(x_test)
@@ -60,7 +57,7 @@ def generic_decoder(
             print(f'auc: {metrics["auc"]:.3f}')
       
     elif behavior_type == "continuous":
-        ridge = Ridge(alpha=penalty_strength)
+        ridge = GridSearchCV(Ridge(), {"alpha": penalty})
         ridge.fit(x_train, y_train)
         
         y_pred = ridge.predict(x_test)
@@ -123,7 +120,6 @@ def sliding_window_decoder(
     test, 
     behavior_type,
     window_size=7,
-    penalty_strength=1000,
     verbose=True,
     seed=666,
     return_prob=False
@@ -170,7 +166,8 @@ def sliding_window_decoder(
         y_train = y_train.flatten()
         y_test = y_test.flatten()
 
-        ridge = Ridge(alpha=penalty_strength)
+        penalty = [1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 1e2, 1e3, 1e4]
+        ridge = GridSearchCV(Ridge(), {"alpha": penalty})
         ridge.fit(x_train, y_train)
         y_pred = ridge.predict(x_test)
         

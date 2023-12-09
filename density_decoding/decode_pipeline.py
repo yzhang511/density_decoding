@@ -41,13 +41,13 @@ def decode_pipeline(
     gmm_init_method="isosplit",
     inference="advi",
     batch_size=32,
-    learning_rate=1e-3,
+    learning_rate=1e-2,
     weight_decay=1e-3,
-    max_iter=5000,
+    max_iter=10000,
     cavi_max_iter=30,
     fast_compute=True,
     stochastic=True,
-    penalty_strength=1000,
+    grad_clip=5,
     device=torch.device("cpu"),
     n_workers=4
 ):
@@ -70,7 +70,6 @@ def decode_pipeline(
             train, 
             test, 
             behavior_type=behavior_type,
-            penalty_strength=penalty_strength,
             seed=seed
         )
 
@@ -118,8 +117,9 @@ def decode_pipeline(
             Y = bin_behaviors, 
             train = train,
             test = test,
-            learning_rate = 1e-3,
-            n_epochs = 5000
+            learning_rate = learning_rate,
+            n_epochs = max_iter,
+            grad_clip=grad_clip
         )
 
         if inference == "advi":
@@ -131,7 +131,7 @@ def decode_pipeline(
                 U_prior = glm.U.detach(),
                 V_prior = glm.V.detach(),
                 b_prior = glm.b.detach(),
-                device=device
+                device=device,
             )
             
             batch_idxs = list(zip(*(iter(train),) * batch_size))
@@ -145,6 +145,9 @@ def decode_pipeline(
                 batch_idxs= batch_idxs, 
                 optim = torch.optim.Adam(advi.parameters(), lr=learning_rate, weight_decay=weight_decay),
                 max_iter=max_iter,
+                fast_compute=fast_compute, 
+                stochastic=stochastic,
+                grad_clip=grad_clip
             )
             
             post_params = {

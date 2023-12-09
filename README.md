@@ -60,7 +60,7 @@ pip install -e .
 ## ⚡️ Quick Start
 Example usage can be found in [tutorials](https://github.com/yzhang511/density_decoding/tree/main/tutorials): 
 
-0. `data_preprocessing`: Users can provide their own preprocessed spike features as decoder input. We also provide a tutorial for running the spike localization pipeline to extract high-resolution spatial features from Neuropixel probes. ⚠️ This notebook is under development. For now, please refer to [this pipeline](https://github.com/int-brain-lab/spikes_localization_registration) for documentation on spike feature extraction.
+0. `data_preprocessing`: Users can provide their own preprocessed spike features as decoder input. We also provide a tutorial for running the spike localization pipeline to extract high-resolution spatial features from Neuropixel probes. This notebook is under development ⚠️. For now, please refer to the legacy [IBL pipeline](https://github.com/int-brain-lab/spikes_localization_registration) or the current [pipeline](https://github.com/cwindolf/dartsort/blob/main/scripts/localize.py) under development for documentation on spike feature extraction.
 
 1. `decoding_pipeline`: We demonstrate our decoding pipeline using custom datasets or IBL public datasets. For a custom dataset, user should provide their own spike features and behaviors as decoder inputs. For public IBL datasets, please download recordings directly through [ONE API](https://int-brain-lab.github.io/iblenv/notebooks_external/one_quickstart.html) and follow the notebook `data_preprocessing` to obtain spike features. 
 
@@ -70,12 +70,14 @@ Example usage can be found in [tutorials](https://github.com/yzhang511/density_d
 
 ## :computer: CLI
 
-`density_decoding` comes with a quick [CLI](https://github.com/yzhang511/density_decoding/tree/main/CLI) decoding pipeline tool. ⚠️ The tool is under development.
+`density_decoding` comes with a quick [CLI](https://github.com/yzhang511/density_decoding/tree/main/CLI) decoding pipeline tool. 
 
-If you have preprocessed IBL spike features, use the following:
+If you have preprocessed IBL spike features, here is an example usage:
 ```
-python decode_ibl.py --pid PROBE_ID --ephys_path PATH_TO_SPIKE_FEATURES --out_path OUTPUT_PATH
---brain_region REGION_OF_INTEREST --behavior BEHAVIOR_TYPE 
+python decode_ibl.py --pid dab512bd-a02d-4c1f-8dbc-9155a163efc0 
+--ephys_path PATH_TO_SPIKE_FEATURES --out_path OUTPUT_PATH
+--brain_region ca1 --behavior choice --align_time_type stimOn_times 
+--t_before 0.5 --t_after 1.0 --n_t_bins 30
 ```
 
 <p align="right">(<a href="#readme-top">Back to top</a>)</p>

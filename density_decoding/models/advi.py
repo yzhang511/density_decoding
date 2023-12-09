@@ -7,7 +7,6 @@ import torch
 import torch.distributions as D
 
 
-
 class ModelDataLoader():
     def __init__(
         self, 
@@ -245,7 +244,8 @@ def train_advi(
     optim, 
     max_iter=5000,
     fast_compute=False,
-    stochastic=False
+    stochastic=False,
+    grad_clip=5.
 ):
     """
     Trains the ADVI model on the provided dataset.
@@ -297,6 +297,7 @@ def train_advi(
             )
             loss.backward()
             elbo = - loss.item()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
             optim.step()
             optim.zero_grad()
             elbos.append(elbo)
@@ -326,6 +327,7 @@ def train_advi(
                 
                 loss.backward()
                 tot_elbo -= loss.item()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
                 optim.step()
                 optim.zero_grad()
             elbos.append(tot_elbo)

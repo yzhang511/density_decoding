@@ -47,12 +47,16 @@ if __name__ == "__main__":
                    ])
     g.add_argument("--brain_region", default="all", type=str)
     g.add_argument("--n_t_bins", default=30, type=int)
+    g.add_argument("--align_time_type", default="stimOn_times", type=str)
+    g.add_argument("--t_before", default=0.5, type=float)
+    g.add_argument("--t_after", default=1.0, type=float)
     g.add_argument("--sliding_window_size", default=7, type=int)
     
     g = ap.add_argument_group("Model Training Config")
     g.add_argument("--batch_size", default=1, type=int)
     g.add_argument("--learning_rate", default=1e-2, type=float)
-    g.add_argument("--max_iter", default=100, type=int)
+    g.add_argument("--max_iter", default=10000, type=int)
+    g.add_argument("--grad_clip", default=5, type=float)
     g.add_argument("--fast_compute", action='store_false', default=True)
     g.add_argument("--stochastic", action='store_false', default=True)
     g.add_argument("--device", default="cpu", type=str, choices=["cpu", "gpu"])
@@ -69,10 +73,11 @@ if __name__ == "__main__":
     
     # -- load data
     ibl_data_loader = IBLDataLoader(
-        args.pid, 
-        trial_length = 1.5, 
-        n_t_bins = args.n_t_bins,
-        prior_path = args.prior_path
+        pid, 
+        align_time_type=args.align_time_type,
+        t_before=args.t_before,
+        t_after=args.t_after,
+        n_t_bins =args.n_t_bins,
     )
     
     print("available brain regions to decode:")
@@ -106,7 +111,6 @@ if __name__ == "__main__":
     
     # -- CV
     kf = KFold(n_splits=5, shuffle=True, random_state=seed)
-    # kf = KFold(n_splits=5, shuffle=False)
     for i, (train, test) in enumerate(kf.split(behavior)):
 
         print(f"Fold {i+1} / 5:")
@@ -129,7 +133,8 @@ if __name__ == "__main__":
             fast_compute=args.fast_compute,
             stochastic=args.stochastic,
             device=device,
-            n_workers=args.n_workers
+            n_workers=args.n_workers,
+            grad_clip=args.grad_clip
         )
         
         if np.logical_and(behavior_type == "continuous", args.behavior != "prior"):
