@@ -5,9 +5,9 @@
 <div width="100" align="right">
 <a href="https://github.com/yzhang511/density_decoding">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png">
-      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png">
-      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/images/icon.png"  width="100" align="right">
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/assets/icon.png">
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/assets/icon.png">
+      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/assets/icon.png"  width="100" align="right">
     </picture>
 </a>
 </div>
@@ -20,9 +20,9 @@
 <div align="right">
 <a href="https://github.com/yzhang511/density_decoding">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/spike_localization_features.png">
-      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/spike_localization_features.png">
-      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/images/spike_localization_features.png"  align="right">
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/assets/spike_localization_features.png">
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/assets/spike_localization_features.png">
+      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/assets/spike_localization_features.png"  align="right">
     </picture>
 </a>
 </div>
@@ -32,9 +32,9 @@
 <div align="right">
 <a href="https://github.com/yzhang511/density_decoding">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/model_diagram.png">
-      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/images/model_diagram.png">
-      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/images/model_diagram.png"  align="right">
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/yzhang511/density_decoding/blob/main/assets/model_diagram.png">
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/yzhang511/density_decoding/blob/main/assets/model_diagram.png">
+      <img alt="Logo toggles light and dark mode" src="https://github.com/yzhang511/density_decoding/blob/main/assets/model_diagram.png"  align="right">
     </picture>
 </a>
 </div>
@@ -70,7 +70,13 @@ Example usage can be found in [tutorials](https://github.com/yzhang511/density_d
 
 ## :computer: CLI
 
-`density_decoding` comes with a quick [CLI](https://github.com/yzhang511/density_decoding/tree/main/scripts) decoding pipeline tool. The tool is under development.
+`density_decoding` comes with a quick [CLI](https://github.com/yzhang511/density_decoding/tree/main/CLI) decoding pipeline tool. ⚠️ The tool is under development.
+
+If you have preprocessed spike features from IBL database, use the following:
+```
+python decode_ibl.py --pid PROBE_ID --ephys_path PATH_TO_SPIKE_FEATURES --out_path OUTPUT_PATH
+--brain_region REGION_OF_INTEREST --behavior BEHAVIOR_TYPE 
+```
 
 <p align="right">(<a href="#readme-top">Back to top</a>)</p>
 
