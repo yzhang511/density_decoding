@@ -569,7 +569,7 @@ class IBLDataLoader(BaseDataLoader):
         ref_event = trials[self.align_time_type] 
 
         n_trials = ref_event.shape[0]
-        print("number of trials found: {} (active: {})".format(n_trials, n_active_trials))
+        print("number of trials found: {}".format(n_trials))
         
         # load stimulus contrast 
         contrast = np.c_[trials['contrastLeft'], trials['contrastRight']]
