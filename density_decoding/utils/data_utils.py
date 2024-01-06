@@ -204,6 +204,7 @@ class IBLDataLoader(BaseDataLoader):
         align_time_type = "stimOn_times",
         t_before = 0.5,
         t_after = 1.,
+        behavior_type=None,
         cache_dir = None
     ):
         super().__init__(t_before, t_after, n_t_bins)
@@ -243,7 +244,9 @@ class IBLDataLoader(BaseDataLoader):
         self.bin_size = self.trial_length / n_t_bins
         self.align_time_type = align_time_type
         align_time = self.one.load_object(self.eid, "trials", collection="alf")[align_time_type] 
-        self.behave_dict, valid_trials = self._featurize_behavior(prior_path=prior_path)
+        self.behave_dict, valid_trials = self._featurize_behavior(
+            behavior_type=behavior_type, prior_path=prior_path
+        )
         self.align_time = align_time[valid_trials]
         self.n_trials = self.align_time.shape[0]
         
@@ -278,13 +281,10 @@ class IBLDataLoader(BaseDataLoader):
         if len(good_units) != 0:
             rois = np.intersect1d(rois, good_units)
         print(f"found {len(rois)} {partition_type} in region {region}")
-        
-        regional = []
-        for idx in tqdm(range(len(rois)), desc="Partition brain regions"):
-            roi = rois[idx]
-            regional.append(data[data[:,1] == roi])
-            
-        return np.vstack(regional)
+
+        data = pd.DataFrame(data)
+        regional = data[data.iloc[:,1].isin(rois)].to_numpy()
+        return regional
     
     
     def _partition_into_trials(self, data):
@@ -535,7 +535,7 @@ class IBLDataLoader(BaseDataLoader):
         return behaviors
     
     
-    def _featurize_behavior(self, prior_path=None):
+    def _featurize_behavior(self, behavior_type="choice", prior_path=None):
         """
         Preprocess behavioral data from IBL. Adapted from:
         https://github.com/int-brain-lab/paper-reproducible-ephys.
@@ -571,80 +571,90 @@ class IBLDataLoader(BaseDataLoader):
         n_trials = ref_event.shape[0]
         print("number of trials found: {}".format(n_trials))
         
-        # load stimulus contrast 
-        contrast = np.c_[trials['contrastLeft'], trials['contrastRight']]
+        behave_dict = {}
         
-        # load pLeft
-        pLeft = trials["probabilityLeft"]
-
-        # load in dlc
-        left_dlc = self.one.load_object(
-            self.eid, "leftCamera", 
-            attribute=["dlc", "features", "times", "ROIMotionEnergy"], 
-            collection="alf"
-        )
-        assert (left_dlc["times"].shape[0] == left_dlc["dlc"].shape[0])
-        left_dlc["dlc"] = dlc.likelihood_threshold(left_dlc["dlc"], threshold=0)
-
-        # TO DO: the data quality of paw speed and pupil diameter is unreliable,
-        #        switch to lightning-pose later.
-        # get right paw speed (closer to camera)
-        paw_speed = dlc.get_speed(left_dlc["dlc"], left_dlc["times"], camera="left", feature="paw_r")
-
-        # get pupil diameter
-        if "features" in left_dlc.keys():
-            pupil_diameter = left_dlc.pop("features")["pupilDiameter_smooth"]
-            if np.sum(np.isnan(pupil_diameter)) > 0:
-                pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
-        else:
-            pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
-
-        # get wheel velocity
-        wheel = self.one.load_object(self.eid, "wheel")
-        vel = wh.velocity(wheel["timestamps"], wheel["position"])
-        wheel_timestamps = wheel["timestamps"][~np.isnan(vel)]
-        vel = vel[~np.isnan(vel)]
-
-        # time binning
-        n_tbins = int(self.trial_length / self.bin_size)
         # choice
-        choice = (trials["choice"] > 0 ).astype(int) 
+        if behavior_type == "choice":
+            choice = (trials["choice"] > 0 ).astype(int) 
+            behave_dict.update({"choice": choice})
         
         # reward
-        reward = (trials["rewardVolume"] > 1) * 1.
+        if behavior_type == "reward":
+            reward = (trials["rewardVolume"] > 1) * 1.
+            behave_dict.update({"reward": reward})
         
-        # wheel velocity
-        bin_vel, _ = bin_norm(wheel_timestamps, ref_event, self.t_before, 
-                              self.t_after, self.bin_size, weights=vel)
-        # left motion energy
-        bin_left_me, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
-                                  self.t_after, self.bin_size, 
-                                  weights=left_dlc["ROIMotionEnergy"])
-        # paw speed
-        bin_paw_speed, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
-                                    self.t_after, self.bin_size, weights=paw_speed)
-        # pupil diameter
-        bin_pup_dia, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
-                                  self.t_after, self.bin_size, weights=pupil_diameter)
+        # load stimulus contrast 
+        if behavior_type == "contrast":
+            contrast = np.c_[trials['contrastLeft'], trials['contrastRight']]
+            behave_dict.update({"contrast": contrast})
         
-        behave_dict = {}
-        behave_dict.update({"choice": choice})
-        behave_dict.update({"pLeft": pLeft})
-        behave_dict.update({"contrast": contrast})
-        behave_dict.update({"reward": reward})
-        behave_dict.update({"motion_energy": bin_left_me})
-        behave_dict.update({"wheel_velocity": bin_vel})
-        behave_dict.update({"wheel_speed": np.abs(bin_vel)})
-        behave_dict.update({"paw_speed": bin_paw_speed})
-        behave_dict.update({"pupil_diameter": bin_pup_dia})
-        
+        # load pLeft
+        if behavior_type == "pLeft":
+            pLeft = trials["probabilityLeft"]
+            behave_dict.update({"pLeft": pLeft})
+            
         # load priors
-        try:
-            prior = np.load(Path(prior_path) / f'prior_{self.eid}.npy')
-            behave_dict.update({"prior": prior[trial_idx]})
-        except:
-            print("prior for this session is not found.")
+        if behavior_type == "prior":
+            try:
+                prior = np.load(Path(prior_path) / f'prior_{self.eid}.npy')
+                behave_dict.update({"prior": prior[trial_idx]})
+            except:
+                print("prior for this session is not found.")
+        
+        # time binning
+        n_tbins = int(self.trial_length / self.bin_size)
+            
+        # load in dlc
+        if behavior_type in ["motion_energy", "wheel_speed", "wheel_velocity", "paw_speed", "pupil_diameter"]:
+            left_dlc = self.one.load_object(
+                self.eid, "leftCamera", 
+                attribute=["dlc", "features", "times", "ROIMotionEnergy"], 
+                collection="alf"
+            )
+            assert (left_dlc["times"].shape[0] == left_dlc["dlc"].shape[0])
+            left_dlc["dlc"] = dlc.likelihood_threshold(left_dlc["dlc"], threshold=0)
 
+            # TO DO: the data quality of paw speed and pupil diameter is unreliable,
+            #        switch to lightning-pose later.
+            # get right paw speed (closer to camera)
+            if behavior_type == "paw_speed":
+                paw_speed = dlc.get_speed(left_dlc["dlc"], left_dlc["times"], camera="left", feature="paw_r")
+                bin_paw_speed, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
+                                        self.t_after, self.bin_size, weights=paw_speed)
+                behave_dict.update({"paw_speed": bin_paw_speed})
+
+            # get pupil diameter
+            if behavior_type == "pupil_diameter":
+                if "features" in left_dlc.keys():
+                    pupil_diameter = left_dlc.pop("features")["pupilDiameter_smooth"]
+                    if np.sum(np.isnan(pupil_diameter)) > 0:
+                        pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
+                else:
+                    pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
+                bin_pup_dia, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
+                                      self.t_after, self.bin_size, weights=pupil_diameter)
+                behave_dict.update({"pupil_diameter": bin_pup_dia})
+
+            # get wheel velocity
+            if behavior_type in ["wheel_velocity", "wheel_speed"]:
+                wheel = self.one.load_object(self.eid, "wheel")
+                vel = wh.velocity(wheel["timestamps"], wheel["position"])
+                wheel_timestamps = wheel["timestamps"][~np.isnan(vel)]
+                vel = vel[~np.isnan(vel)]
+        
+                # wheel velocity
+                bin_vel, _ = bin_norm(wheel_timestamps, ref_event, self.t_before, 
+                                      self.t_after, self.bin_size, weights=vel)
+                behave_dict.update({"wheel_velocity": bin_vel})
+                behave_dict.update({"wheel_speed": np.abs(bin_vel)})
+                
+            # left motion energy
+            if behavior_type == "motion_energy":
+                bin_left_me, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
+                                          self.t_after, self.bin_size, 
+                                          weights=left_dlc["ROIMotionEnergy"])
+                behave_dict.update({"motion_energy": bin_left_me})
+    
         return behave_dict, trial_idx
     
 
