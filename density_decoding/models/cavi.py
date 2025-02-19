@@ -506,6 +506,3 @@ def compute_lambda_for_cavi(
     return lambdas, p
     
     
-    
-    
-    

@@ -23,7 +23,6 @@ def train_glm(
     n_r = 2,
     learning_rate=1e-3,
     n_epochs=10000,
-    grad_clip=5
     ):
     
     _, n_c, n_t = X.shape
@@ -42,7 +41,6 @@ def train_glm(
         x_pred = glm(train_y)
         loss = criterion(x_pred, train_x)
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(glm.parameters(), grad_clip)
         optimizer.step()
         losses.append(loss.item())
     return glm, losses

@@ -33,7 +33,6 @@ def decode_pipeline(
     bin_spike_features,
     bin_trial_idxs,
     bin_time_idxs,
-    thresholded_spike_count,
     bin_behaviors,
     behavior_type,
     train,
@@ -41,13 +40,13 @@ def decode_pipeline(
     gmm_init_method="isosplit",
     inference="advi",
     batch_size=32,
-    learning_rate=1e-2,
+    learning_rate=1e-3,
     weight_decay=1e-3,
-    max_iter=10000,
+    max_iter=5000,
     cavi_max_iter=30,
     fast_compute=True,
     stochastic=True,
-    grad_clip=5,
+    penalty_strength=1000,
     device=torch.device("cpu"),
     n_workers=4
 ):
@@ -63,19 +62,12 @@ def decode_pipeline(
         assert inference in valid_inf, f"invalid inference type; expected one of {valid_inf}."
         
         fast_compute = False if data_loader.type == "custom" else fast_compute
-        
-        y_train, _, y_pred, _ = generic_decoder(
-            thresholded_spike_count, 
-            bin_behaviors, 
-            train, 
-            test, 
-            behavior_type=behavior_type,
-            seed=seed
-        )
 
-        spike_features = np.concatenate(
-            np.concatenate(bin_spike_features)
-        )
+        spike_features = np.concatenate([
+            np.concatenate([
+                features for features in trial_features if len(features) > 0
+            ]) for trial_features in bin_spike_features if len(trial_features) > 0
+        ])
 
         gmm = initilize_gaussian_mixtures(
             spike_features=spike_features[:,1:], 
@@ -100,6 +92,16 @@ def decode_pipeline(
             bin_time_idxs
         )
 
+        y_train, _, y_pred, _ = generic_decoder(
+            init_weight_matrix, 
+            bin_behaviors, 
+            train, 
+            test, 
+            behavior_type=behavior_type,
+            penalty_strength=penalty_strength,
+            seed=seed
+        )
+
         if behavior_type == "discrete":
             model_data_loader.bin_behaviors = model_data_loader.bin_behaviors.reshape(-1,1)
         elif np.logical_and(behavior_type == "continuous", len(bin_behaviors.shape) == 1):
@@ -117,9 +119,8 @@ def decode_pipeline(
             Y = bin_behaviors, 
             train = train,
             test = test,
-            learning_rate = learning_rate,
-            n_epochs = max_iter,
-            grad_clip=grad_clip
+            learning_rate = 1e-3,
+            n_epochs = 5000
         )
 
         if inference == "advi":
@@ -131,7 +132,7 @@ def decode_pipeline(
                 U_prior = glm.U.detach(),
                 V_prior = glm.V.detach(),
                 b_prior = glm.b.detach(),
-                device=device,
+                device=device
             )
             
             batch_idxs = list(zip(*(iter(train),) * batch_size))
@@ -145,9 +146,6 @@ def decode_pipeline(
                 batch_idxs= batch_idxs, 
                 optim = torch.optim.Adam(advi.parameters(), lr=learning_rate, weight_decay=weight_decay),
                 max_iter=max_iter,
-                fast_compute=fast_compute, 
-                stochastic=stochastic,
-                grad_clip=grad_clip
             )
             
             post_params = {

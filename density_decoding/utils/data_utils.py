@@ -7,8 +7,8 @@ from tqdm import tqdm
 from pathlib import Path
 
 from one.api import ONE
-from brainbox.io.one import SpikeSortingLoader
-from ibllib.atlas import AllenAtlas
+from brainbox.io.one import SpikeSortingLoader, SessionLoader
+from iblatlas.atlas import AllenAtlas
 import brainbox.behavior.dlc as dlc
 import brainbox.behavior.wheel as wh
 
@@ -201,11 +201,8 @@ class IBLDataLoader(BaseDataLoader):
         base_url = "https://openalyx.internationalbrainlab.org",
         password = "international",
         prior_path=None,
-        align_time_type = "stimOn_times",
         t_before = 0.5,
-        t_after = 1.,
-        behavior_type=None,
-        cache_dir = None
+        t_after = 1.
     ):
         super().__init__(t_before, t_after, n_t_bins)
         """
@@ -220,15 +217,7 @@ class IBLDataLoader(BaseDataLoader):
         
         # load spike sorting data from IBL
         ba = AllenAtlas()
-        if cache_dir:
-            self.one = ONE(
-                cache_dir=cache_dir, base_url=base_url, password=password, silent=True
-            )
-        else:
-            self.one = ONE(
-                base_url=base_url, password=password, silent=True
-            )
-            cache_dir = self.one.cache_dir
+        self.one = ONE(base_url=base_url, password=password, silent = True)
         self.eid, probe = self.one.pid2eid(self.pid)
         self.sl = SpikeSortingLoader(pid = self.pid, one = self.one, atlas = ba)
         self.spikes, self.clusters, self.channels = self.sl.load_spike_sorting()
@@ -242,15 +231,12 @@ class IBLDataLoader(BaseDataLoader):
         self.t_before, self.t_after = t_before, t_after
         self.trial_length = self.t_before + self.t_after
         self.bin_size = self.trial_length / n_t_bins
-        self.align_time_type = align_time_type
-        align_time = self.one.load_object(self.eid, "trials", collection="alf")[align_time_type] 
-        self.behave_dict, valid_trials = self._featurize_behavior(
-            behavior_type=behavior_type, prior_path=prior_path
-        )
-        self.align_time = align_time[valid_trials]
-        self.n_trials = self.align_time.shape[0]
+        stim_on_times = self.one.load_object(self.eid, "trials", collection="alf")["stimOn_times"] 
+        self.behave_dict, valid_trials = self._featurize_behavior(prior_path=prior_path)
+        self.stim_on_times = stim_on_times[valid_trials]
+        self.n_trials = self.stim_on_times.shape[0]
         
-        print(f"found {self.n_trials} trials from {self.align_time[0]:.2f} to {self.align_time[-1]:.2f} sec.")
+        print(f"found {self.n_trials} trials from {self.stim_on_times[0]:.2f} to {self.stim_on_times[-1]:.2f} sec.")
         
 
     def check_available_brain_regions(self):
@@ -281,10 +267,13 @@ class IBLDataLoader(BaseDataLoader):
         if len(good_units) != 0:
             rois = np.intersect1d(rois, good_units)
         print(f"found {len(rois)} {partition_type} in region {region}")
-
-        data = pd.DataFrame(data)
-        regional = data[data.iloc[:,1].isin(rois)].to_numpy()
-        return regional
+        
+        regional = []
+        for idx in tqdm(range(len(rois)), desc="Partition brain regions"):
+            roi = rois[idx]
+            regional.append(data[data[:,1] == roi])
+            
+        return np.vstack(regional)
     
     
     def _partition_into_trials(self, data):
@@ -293,8 +282,8 @@ class IBLDataLoader(BaseDataLoader):
         trials = []
         for i in range(self.n_trials):
             mask = np.logical_and(
-                data[:,0] >= self.align_time[i] - self.t_before,   
-                data[:,0] <= self.align_time[i] + self.t_after
+                data[:,0] >= self.stim_on_times[i] - self.t_before,   
+                data[:,0] <= self.stim_on_times[i] + self.t_after
             )
             trials.append(data[mask])
             
@@ -455,8 +444,8 @@ class IBLDataLoader(BaseDataLoader):
             spike_times, 
             spike_channels, 
             spike_features,
-            self.align_time - self.t_before, 
-            self.align_time + self.t_after
+            self.stim_on_times - self.t_before, 
+            self.stim_on_times + self.t_after
         )
         
         return bin_spike_features, bin_trial_idxs, bin_time_idxs
@@ -495,8 +484,8 @@ class IBLDataLoader(BaseDataLoader):
         for k in tqdm(range(self.n_trials), desc="Compute spike count"):
             
             mask = np.logical_and(
-                spike_train[:,0] >= self.align_time[k] - self.t_before,
-                spike_train[:,0] <= self.align_time[k] + self.t_after
+                spike_train[:,0] >= self.stim_on_times[k] - self.t_before,
+                spike_train[:,0] <= self.stim_on_times[k] + self.t_after
             )
             sub_spike_train = spike_train[mask]
             
@@ -526,7 +515,7 @@ class IBLDataLoader(BaseDataLoader):
             behaviors: size (n_k,) or (n_k, n_t) array for discrete or continuous variables
         """
         
-        valid_types = ["choice", "prior", "pLeft", "contrast", "reward",
+        valid_types = ["choice", "prior", "contrast", "reward",
                        "motion_energy", "wheel_velocity", "wheel_speed",
                        "pupil_diameter", "paw_speed"]
         assert behavior_type in valid_types, f"invalid behavior type; expected one of {valid_types}."
@@ -535,7 +524,7 @@ class IBLDataLoader(BaseDataLoader):
         return behaviors
     
     
-    def _featurize_behavior(self, behavior_type="choice", prior_path=None):
+    def _featurize_behavior(self, prior_path=None):
         """
         Preprocess behavioral data from IBL. Adapted from:
         https://github.com/int-brain-lab/paper-reproducible-ephys.
@@ -543,7 +532,7 @@ class IBLDataLoader(BaseDataLoader):
 
         # load trials
         trials = self.one.load_object(self.eid, "trials")
-        trial_idx = np.arange(trials[self.align_time_type].shape[0])
+        trial_idx = np.arange(trials["firstMovement_times"].shape[0])
 
         # filter out trials with no choice
         choice_filter = np.where(trials["choice"] != 0)
@@ -561,100 +550,98 @@ class IBLDataLoader(BaseDataLoader):
                         np.isnan(trials["feedback_times"]),
                         np.isnan(trials["stimOff_times"])]
         kept_idx = np.sum(nan_idx, axis=1) == 0
-        
+
         trials = {key: trials[key][kept_idx] for key in trials.keys()}
         trial_idx = trial_idx[kept_idx]
 
         # select active trials
-        ref_event = trials[self.align_time_type] 
+        ref_event = trials["firstMovement_times"] 
+        # diff1 = ref_event - trials["stimOn_times"]
+        # diff2 = trials["feedback_times"] - ref_event
+        # t_select1 = np.logical_and(diff1 > 0.0, diff1 < self.t_before - 0.1)
+        # t_select2 = np.logical_and(diff2 > 0.0, diff2 < self.t_after - 0.1)
+        # t_select = np.logical_and(t_select1, t_select2)
 
-        n_trials = ref_event.shape[0]
-        print("number of trials found: {}".format(n_trials))
-        
-        behave_dict = {}
-        
-        # choice
-        if behavior_type == "choice":
-            choice = (trials["choice"] > 0 ).astype(int) 
-            behave_dict.update({"choice": choice})
-        
-        # reward
-        if behavior_type == "reward":
-            reward = (trials["rewardVolume"] > 1) * 1.
-            behave_dict.update({"reward": reward})
+        # trials = {key: trials[key][t_select] for key in trials.keys()}
+        # trial_idx = trial_idx[t_select]
+        # ref_event = ref_event[t_select]
+
+        n_active_trials = ref_event.shape[0]
+
+        n_trials = n_active_trials
+        print("number of trials found: {} (active: {})".format(n_trials, n_active_trials))
         
         # load stimulus contrast 
-        if behavior_type == "contrast":
-            contrast = np.c_[trials['contrastLeft'], trials['contrastRight']]
-            behave_dict.update({"contrast": contrast})
-        
-        # load pLeft
-        if behavior_type == "pLeft":
-            pLeft = trials["probabilityLeft"]
-            behave_dict.update({"pLeft": pLeft})
-            
-        # load priors
-        if behavior_type == "prior":
-            try:
-                prior = np.load(Path(prior_path) / f'prior_{self.eid}.npy')
-                behave_dict.update({"prior": prior[trial_idx]})
-            except:
-                print("prior for this session is not found.")
-        
+        contrast = np.c_[trials['contrastLeft'], trials['contrastRight']]
+
+        # load in dlc
+        left_dlc = self.one.load_object(
+            self.eid, "leftCamera", 
+            attribute=["dlc", "features", "times", "ROIMotionEnergy"], 
+            collection="alf"
+        )
+        assert (left_dlc["times"].shape[0] == left_dlc["dlc"].shape[0])
+        left_dlc["dlc"] = dlc.likelihood_threshold(left_dlc["dlc"], threshold=0)
+
+        # TO DO: the data quality of paw speed and pupil diameter is unreliable,
+        #        switch to lightning-pose later.
+        # get right paw speed (closer to camera)
+        paw_speed = dlc.get_speed(left_dlc["dlc"], left_dlc["times"], camera="left", feature="paw_r")
+
+        # get pupil diameter
+        if "features" in left_dlc.keys():
+            pupil_diameter = left_dlc.pop("features")["pupilDiameter_smooth"]
+            if np.sum(np.isnan(pupil_diameter)) > 0:
+                pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
+        else:
+            pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
+
+        # get wheel velocity
+        sess_loader = SessionLoader(one=self.one, eid=self.eid)
+        sess_loader.load_wheel()
+        wheel_timestamps = sess_loader.wheel['times'].to_numpy()
+        vel = sess_loader.wheel['velocity'].to_numpy()
+        vel = vel[~np.isnan(vel)]
+
         # time binning
         n_tbins = int(self.trial_length / self.bin_size)
-            
-        # load in dlc
-        if behavior_type in ["motion_energy", "wheel_speed", "wheel_velocity", "paw_speed", "pupil_diameter"]:
-            left_dlc = self.one.load_object(
-                self.eid, "leftCamera", 
-                attribute=["dlc", "features", "times", "ROIMotionEnergy"], 
-                collection="alf"
-            )
-            assert (left_dlc["times"].shape[0] == left_dlc["dlc"].shape[0])
-            left_dlc["dlc"] = dlc.likelihood_threshold(left_dlc["dlc"], threshold=0)
-
-            # TO DO: the data quality of paw speed and pupil diameter is unreliable,
-            #        switch to lightning-pose later.
-            # get right paw speed (closer to camera)
-            if behavior_type == "paw_speed":
-                paw_speed = dlc.get_speed(left_dlc["dlc"], left_dlc["times"], camera="left", feature="paw_r")
-                bin_paw_speed, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
-                                        self.t_after, self.bin_size, weights=paw_speed)
-                behave_dict.update({"paw_speed": bin_paw_speed})
-
-            # get pupil diameter
-            if behavior_type == "pupil_diameter":
-                if "features" in left_dlc.keys():
-                    pupil_diameter = left_dlc.pop("features")["pupilDiameter_smooth"]
-                    if np.sum(np.isnan(pupil_diameter)) > 0:
-                        pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
-                else:
-                    pupil_diameter = dlc.get_smooth_pupil_diameter(dlc.get_pupil_diameter(left_dlc["dlc"]), "left")
-                bin_pup_dia, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
-                                      self.t_after, self.bin_size, weights=pupil_diameter)
-                behave_dict.update({"pupil_diameter": bin_pup_dia})
-
-            # get wheel velocity
-            if behavior_type in ["wheel_velocity", "wheel_speed"]:
-                wheel = self.one.load_object(self.eid, "wheel")
-                vel = wh.velocity(wheel["timestamps"], wheel["position"])
-                wheel_timestamps = wheel["timestamps"][~np.isnan(vel)]
-                vel = vel[~np.isnan(vel)]
+        # choice
+        choice = (trials["choice"] > 0 ).astype(int) 
         
-                # wheel velocity
-                bin_vel, _ = bin_norm(wheel_timestamps, ref_event, self.t_before, 
-                                      self.t_after, self.bin_size, weights=vel)
-                behave_dict.update({"wheel_velocity": bin_vel})
-                behave_dict.update({"wheel_speed": np.abs(bin_vel)})
-                
-            # left motion energy
-            if behavior_type == "motion_energy":
-                bin_left_me, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
-                                          self.t_after, self.bin_size, 
-                                          weights=left_dlc["ROIMotionEnergy"])
-                behave_dict.update({"motion_energy": bin_left_me})
-    
+        # reward
+        reward = (trials["rewardVolume"] > 1) * 1.
+        
+        # wheel velocity
+        bin_vel, _ = bin_norm(wheel_timestamps, ref_event, self.t_before, 
+                              self.t_after, self.bin_size, weights=vel)
+        # left motion energy
+        bin_left_me, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
+                                  self.t_after, self.bin_size, 
+                                  weights=left_dlc["ROIMotionEnergy"])
+        # paw speed
+        bin_paw_speed, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
+                                    self.t_after, self.bin_size, weights=paw_speed)
+        # pupil diameter
+        bin_pup_dia, _ = bin_norm(left_dlc["times"], ref_event, self.t_before, 
+                                  self.t_after, self.bin_size, weights=pupil_diameter)
+        
+        behave_dict = {}
+        behave_dict.update({"choice": choice})
+        behave_dict.update({"contrast": contrast})
+        behave_dict.update({"reward": reward})
+        behave_dict.update({"motion_energy": bin_left_me})
+        behave_dict.update({"wheel_velocity": bin_vel})
+        behave_dict.update({"wheel_speed": np.abs(bin_vel)})
+        behave_dict.update({"paw_speed": bin_paw_speed})
+        behave_dict.update({"pupil_diameter": bin_pup_dia})
+        
+        # load priors
+        try:
+            prior = np.load(Path(prior_path) / f'prior_{self.eid}.npy')
+            behave_dict.update({"prior": prior[trial_idx]})
+        except:
+            print("prior for this session is not found.")
+
         return behave_dict, trial_idx
     
 
@@ -710,9 +697,7 @@ def initilize_gaussian_mixtures(
                         whiten_cluster_pairs = 1, 
                         refine_clusters = 1
                     )
-                except AssertionError:
-                    continue
-                except ValueError:
+                except (AssertionError, ValueError):
                     continue
             elif subset_spike_features.shape[0] < min_n_spikes:
                 continue
@@ -725,16 +710,31 @@ def initilize_gaussian_mixtures(
 
             for label in np.arange(n_labels):
                 mask = (spike_labels == label)
-                subset_gmm = GaussianMixture(
-                    n_components=1, 
-                    covariance_type='full',
-                    init_params='k-means++'
-                )
-                subset_gmm.fit(subset_spike_features[mask])
-                subset_labels = subset_gmm.predict(subset_spike_features[mask])
-                subset_weights.append(len(subset_labels)/len(spike_features))
-                subset_means.append(subset_gmm.means_)
-                subset_covs.append(subset_gmm.covariances_)
+                subset_features = subset_spike_features[mask]
+                
+                # Skip if too few samples
+                if len(subset_features) < 2:
+                    continue
+                    
+                try:
+                    subset_gmm = GaussianMixture(
+                        n_components=1, 
+                        covariance_type='full',
+                        init_params='k-means++',
+                        reg_covar=1e-6  # Add regularization to prevent singular covariance
+                    )
+                    subset_gmm.fit(subset_features)
+                    subset_labels = subset_gmm.predict(subset_features)
+                    subset_weights.append(len(subset_labels)/len(spike_features))
+                    subset_means.append(subset_gmm.means_)
+                    subset_covs.append(subset_gmm.covariances_)
+                except ValueError as e:
+                    if verbose:
+                        print(f"Skipping cluster {label} on channel {channel} due to fitting error: {str(e)}")
+                    continue
+
+        if len(subset_weights) == 0:
+            raise ValueError("No valid Gaussian components could be fitted. Try using method='sklearn' instead.")
 
         # aggregate the subsets of Gaussian mixture models into one overall model
         n_c = len(np.hstack(subset_weights))
@@ -820,4 +820,3 @@ def sliding_window_behaviors(y, delta=5):
     y_window = np.vstack(y_window)
     
     return y_window, y_pos
-
